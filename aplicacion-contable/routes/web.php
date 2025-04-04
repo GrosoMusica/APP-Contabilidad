@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\EntryController;
 use App\Http\Controllers\CompradorController;
 use App\Http\Controllers\AcreedorController;
+use App\Http\Controllers\LoteController;
 
 // Ruta para crear entradas
 Route::get('/create-entries', function () {
@@ -19,6 +20,10 @@ Route::get('/comprador/{id}', [EntryController::class, 'show'])->name('comprador
 Route::get('/comprador/{id}/edit', [CompradorController::class, 'edit'])->name('comprador.edit');
 Route::put('/comprador/{id}', [CompradorController::class, 'update'])->name('comprador.update');
 Route::patch('/comprador/{id}/toggle-judicializado', [CompradorController::class, 'toggleJudicializado'])->name('comprador.toggleJudicializado');
+
+// Rutas para lotes
+Route::get('/lotes', [LoteController::class, 'index'])->name('lotes.index');
+Route::get('/lotes/{id}', [LoteController::class, 'show'])->name('lotes.show');
 
 // Ruta para la página de bienvenida
 Route::get('/', function () {

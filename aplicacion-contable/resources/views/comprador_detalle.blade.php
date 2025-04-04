@@ -221,25 +221,7 @@
 
             <!-- Acreedores -->
             <div class="col-md-12 mt-4">
-                    <div class="row mt-4">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    Acreedores
-                                </div>
-                                <div class="card-body">
-                                    <ul class="list-group">
-                                        @foreach($acreedores as $acreedor)
-                                            <li class="list-group-item">
-                                                <strong>Nombre:</strong> {{ $acreedor->nombre }}
-                                                <p><strong>Monto Adeudado:</strong> U$D {{ number_format($acreedor->monto_adeudado, 2) }}</p>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <x-acreedores :acreedores="$acreedores" :comprador="$comprador" />
             </div>
         </div>
     </div>

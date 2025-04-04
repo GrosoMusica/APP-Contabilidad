@@ -11,7 +11,7 @@ class Acreedor extends Model
 
     protected $table = 'acreedores';
 
-    protected $fillable = ['nombre', 'monto_adeudado', 'porcentaje'];
+    protected $fillable = ['nombre', 'monto_adeudado', 'porcentaje', 'saldo'];
 
     public function compradores()
     {
