@@ -95,12 +95,70 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        Cuota Actual #{{ $cuotas->first()->numero_de_cuota }}
-                        <p><strong>Fecha de Vencimiento:</strong> {{ $cuotas->first()->fecha_de_vencimiento->format('d-m-Y') }}</p>
+                        @php
+                            // Fechas básicas para comparación
+                            $hoy = \Carbon\Carbon::now();
+                            $inicioMes = \Carbon\Carbon::now()->startOfMonth();
+                            $finMes = \Carbon\Carbon::now()->endOfMonth();
+                            
+                            // Asegurarse de que todas las fechas son instancias de Carbon
+                            foreach ($cuotas as $cuota) {
+                                if (!$cuota->fecha_de_vencimiento instanceof \Carbon\Carbon) {
+                                    $cuota->fecha_de_vencimiento = \Carbon\Carbon::parse($cuota->fecha_de_vencimiento);
+                                }
+                            }
+                            
+                            // Encontrar la cuota del mes actual (la más simple posible)
+                            $cuotaMesActual = $cuotas->first(function($cuota) use ($hoy) {
+                                return $cuota->fecha_de_vencimiento->month == $hoy->month &&
+                                       $cuota->fecha_de_vencimiento->year == $hoy->year;
+                            });
+                            
+                            // Si no hay cuota este mes, tomar la próxima
+                            if (!$cuotaMesActual) {
+                                $cuotaMesActual = $cuotas->where('fecha_de_vencimiento', '>', $hoy)
+                                                     ->sortBy('fecha_de_vencimiento')
+                                                     ->first();
+                            }
+                            
+                            // Contar cuotas atrasadas (simple)
+                            $cuotasAtrasadas = $cuotas->where('estado', '!=', 'pagada')
+                                                      ->where('estado', '!=', 'sin_comprobante')
+                                                      ->where('fecha_de_vencimiento', '<', $hoy)
+                                                      ->count();
+                            
+                            // Determinar estado general de la cuenta
+                            $estadoCuenta = $cuotasAtrasadas > 0 ? 'Cuotas atrasadas' : 'Al día';
+                            $claseCuenta = $cuotasAtrasadas > 0 ? 'text-danger' : 'text-success';
+                        @endphp
+                        Cuota Mes Actual
+                        <p><strong>Fecha de Vencimiento:</strong> {{ $cuotaMesActual ? $cuotaMesActual->fecha_de_vencimiento->format('d-m-Y') : 'N/A' }}</p>
                     </div>
                     <div class="card-body">
-                        <p><strong>Monto:</strong> U$D {{ number_format($cuotas->first()->monto, 2) }}</p>
-                        <p><strong>Estado:</strong> <span class="{{ $cuotas->first()->estado_color }}">{{ ucfirst($cuotas->first()->estado) }}</span></p>
+                        @if($cuotaMesActual)
+                            <p><strong>Monto:</strong> U$D {{ number_format($cuotaMesActual->monto, 2) }}</p>
+                            <p><strong>Estado:</strong> 
+                                @if($cuotaMesActual->estado == 'pagada' || $cuotaMesActual->estado == 'sin_comprobante')
+                                    <span class="text-success">Pagada</span>
+                                @elseif($cuotaMesActual->fecha_de_vencimiento < $hoy)
+                                    <span class="text-danger" style="{{ $cuotaMesActual->fecha_de_vencimiento->month < $hoy->month ? 'border:2px solid red; padding:2px 5px; display:inline-block;' : '' }}">
+                                        {{ $cuotaMesActual->fecha_de_vencimiento->month < $hoy->month ? 'Adeuda' : 'Vencida' }}
+                                    </span>
+                                @else
+                                    <span class="text-warning">Pendiente</span>
+                                @endif
+                            </p>
+                        @else
+                            <p>No hay cuotas programadas para el mes actual.</p>
+                        @endif
+                        
+                        <!-- Indicador de estado de cuenta -->
+                        <div class="alert {{ $cuotasAtrasadas > 0 ? 'alert-danger' : 'alert-success' }} mt-3">
+                            <strong>Estado de cuenta:</strong> <span class="{{ $claseCuenta }}">{{ $estadoCuenta }}</span>
+                            @if($cuotasAtrasadas > 0)
+                                <br>Hay {{ $cuotasAtrasadas }} cuota(s) atrasada(s).
+                            @endif
+                        </div>
                     </div>
 
                     <!-- Desplegable de Cuotas -->
@@ -120,7 +178,37 @@
                                                 <strong>Cuota #{{ $cuota->numero_de_cuota }}</strong>
                                                 <p>Monto: U$D {{ number_format($cuota->monto, 2) }}</p>
                                                 <p>Fecha de Vencimiento: {{ $cuota->fecha_de_vencimiento->format('d-m-Y') }}</p>
-                                                <p>Estado: <span class="{{ $cuota->estado == 'pagada' ? 'text-success' : ($cuota->estado == 'pendiente' ? 'text-warning' : 'text-danger') }}">{{ ucfirst($cuota->estado) }}</span></p>
+                                                <p>Estado: 
+                                                    @php
+                                                        $estadoClass = '';
+                                                        $estiloAdicional = '';
+                                                        
+                                                        // Determinar el estilo basado en el estado y la fecha
+                                                        if ($cuota->estado == 'pagada' || $cuota->estado == 'sin_comprobante') {
+                                                            // Pagado - VERDE
+                                                            $estadoClass = 'text-success';
+                                                            $estadoMostrado = 'Pagada';
+                                                        } elseif ($cuota->fecha_de_vencimiento < $inicioMes) {
+                                                            // Adeuda - ROJO con borde (mes anterior)
+                                                            $estadoClass = 'text-danger';
+                                                            $estiloAdicional = 'border:2px solid red; padding:2px 5px; display:inline-block;';
+                                                            $estadoMostrado = 'Adeuda';
+                                                        } elseif ($cuota->fecha_de_vencimiento <= $hoy) {
+                                                            // Vencido - ROJO (mismo mes, pasó la fecha)
+                                                            $estadoClass = 'text-danger';
+                                                            $estadoMostrado = 'Vencida';
+                                                        } elseif ($cuota->fecha_de_vencimiento <= $finMes) {
+                                                            // Pendiente - AMARILLO (mismo mes, antes de la fecha)
+                                                            $estadoClass = 'text-warning';
+                                                            $estadoMostrado = 'Pendiente';
+                                                        } else {
+                                                            // Pendiente futuro - Sin color especial
+                                                            $estadoClass = 'text-muted';
+                                                            $estadoMostrado = 'Pendiente';
+                                                        }
+                                                    @endphp
+                                                    <span class="{{ $estadoClass }}" style="{{ $estiloAdicional }}">{{ $estadoMostrado }}</span>
+                                                </p>
                                             </li>
                                         @endforeach
                                     </ul>
@@ -133,7 +221,25 @@
 
             <!-- Acreedores -->
             <div class="col-md-12 mt-4">
-                @include('components.acreedores', ['acreedores' => $acreedores])
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    Acreedores
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-group">
+                                        @foreach($acreedores as $acreedor)
+                                            <li class="list-group-item">
+                                                <strong>Nombre:</strong> {{ $acreedor->nombre }}
+                                                <p><strong>Monto Adeudado:</strong> U$D {{ number_format($acreedor->monto_adeudado, 2) }}</p>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
             </div>
         </div>
     </div>
