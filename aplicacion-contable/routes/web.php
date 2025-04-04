@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\EntryController;
 use App\Http\Controllers\CompradorController;
+use App\Http\Controllers\AcreedorController;
 
 // Ruta para crear entradas
 Route::get('/create-entries', function () {
@@ -23,3 +24,6 @@ Route::patch('/comprador/{id}/toggle-judicializado', [CompradorController::class
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Ruta para crear acreedores
+Route::post('/acreedores', [AcreedorController::class, 'store'])->name('acreedores.store');

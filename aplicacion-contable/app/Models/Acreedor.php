@@ -1,7 +1,5 @@
 <?php
 
- 
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,8 +11,19 @@ class Acreedor extends Model
 
     protected $table = 'acreedores';
 
+    protected $fillable = ['nombre', 'monto_adeudado', 'porcentaje'];
 
-    protected $fillable = ['nombre', 'saldo'];
+    public function compradores()
+    {
+        return $this->hasManyThrough(
+            Comprador::class,
+            Financiacion::class,
+            'id', // Clave local en financiacion_acreedor
+            'id', // Clave local en compradores
+            'id', // Clave remota en acreedores
+            'comprador_id' // Clave remota en financiaciones
+        );
+    }
 
     public function financiaciones()
     {

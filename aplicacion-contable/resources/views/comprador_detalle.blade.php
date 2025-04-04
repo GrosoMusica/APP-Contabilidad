@@ -130,6 +130,11 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Acreedores -->
+            <div class="col-md-12 mt-4">
+                @include('components.acreedores', ['acreedores' => $acreedores])
+            </div>
         </div>
     </div>
 

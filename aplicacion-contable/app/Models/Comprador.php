@@ -20,12 +20,12 @@ class Comprador extends Model
     // Relación con Lote
     public function lote()
     {
-        return $this->hasOne(Lote::class, 'id', 'lote_comprado_id');
+        return $this->hasOne(Lote::class, 'comprador_id', 'id');
     }
 
     // Relación con Financiacion
     public function financiacion()
     {
-        return $this->hasOne(Financiacion::class, 'id', 'financiacion_id');
+        return $this->hasOne(Financiacion::class, 'comprador_id', 'id');
     }
 }

@@ -49,15 +49,6 @@
                     <td>{{ $comprador->email }}</td>
                     <td>{{ $comprador->telefono }}</td>
                     <td>
-                        @if($comprador->financiacion->cuotas->isNotEmpty())
-                            <span class="{{ $comprador->financiacion->cuotas->first()->estado_color }}">
-                                {{ ucfirst($comprador->financiacion->cuotas->first()->estado) }}
-                            </span>
-                        @else
-                            <span class="text-muted">N/A</span>
-                        @endif
-                    </td>
-                    <td>
                         <form action="{{ route('comprador.toggleJudicializado', $comprador->id) }}" method="POST">
                             @csrf
                             @method('PATCH')
