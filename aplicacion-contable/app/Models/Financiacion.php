@@ -15,6 +15,8 @@ class Financiacion extends Model
         'comprador_id', 'monto_a_financiar', 'cantidad_de_cuotas', 'fecha_de_vencimiento', 'monto_de_las_cuotas'
     ];
 
+    protected $dates = ['fecha_de_vencimiento'];
+
     public function comprador()
     {
         return $this->belongsTo(Comprador::class, 'comprador_id');

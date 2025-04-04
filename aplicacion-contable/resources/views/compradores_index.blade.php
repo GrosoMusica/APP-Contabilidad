@@ -38,7 +38,7 @@
                     <th>Nombre</th>
                     <th>Email</th>
                     <th>Teléfono</th>
-                    <th>Estado de las Cuotas</th>
+                    <th>Estado de Cuota Actual</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -49,13 +49,20 @@
                     <td>{{ $comprador->email }}</td>
                     <td>{{ $comprador->telefono }}</td>
                     <td>
+                        @if($comprador->financiacion->cuotas->isNotEmpty())
+                            <span class="{{ $comprador->financiacion->cuotas->first()->estado_color }}">
+                                {{ ucfirst($comprador->financiacion->cuotas->first()->estado) }}
+                            </span>
+                        @else
+                            <span class="text-muted">N/A</span>
+                        @endif
+                    </td>
+                    <td>
                         <form action="{{ route('comprador.toggleJudicializado', $comprador->id) }}" method="POST">
                             @csrf
                             @method('PATCH')
                             <input type="checkbox" onchange="this.form.submit()" {{ $comprador->judicializado ? 'checked' : '' }}>
                         </form>
-                    </td>
-                    <td>
                         <a href="{{ route('comprador.show', $comprador->id) }}" class="btn btn-info btn-sm">Ver Detalle</a>
                         <a href="{{ route('comprador.edit', $comprador->id) }}" class="btn btn-warning btn-sm">Editar</a>
                     </td>

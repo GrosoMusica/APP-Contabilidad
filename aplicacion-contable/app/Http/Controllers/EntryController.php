@@ -68,12 +68,13 @@ class EntryController extends Controller
 
             // Crear las cuotas
             $fechaVencimiento = Carbon::parse($request->fecha_de_vencimiento);
-            for ($i = 0; $i < $request->cantidad_de_cuotas; $i++) {
+            for ($i = 1; $i <= $request->cantidad_de_cuotas; $i++) {
                 $cuota = Cuota::create([
                     'financiacion_id' => $financiacion->id,
                     'monto' => $montoDeLasCuotas,
-                    'fecha_de_vencimiento' => $fechaVencimiento->copy()->addMonths($i),
+                    'fecha_de_vencimiento' => $fechaVencimiento->copy()->addMonths($i - 1),
                     'estado' => 'pendiente', // Estado inicial
+                    'numero_de_cuota' => $i, // Asigna el número de cuota
                 ]);
                 Log::info('Cuota creada con ID: ' . $cuota->id . ' para la financiación ID: ' . $financiacion->id);
             }
@@ -115,15 +116,39 @@ class EntryController extends Controller
 
     public function show($id)
     {
-        $comprador = Comprador::findOrFail($id);
-        $cuotas = Cuota::where('financiacion_id', $comprador->financiacion_id)->get();
+        $comprador = Comprador::with('lote', 'financiacion.cuotas')->findOrFail($id);
+        $cuotas = $comprador->financiacion->cuotas;
 
-        return view('comprador_detalle', compact('comprador', 'cuotas'));
+        // Calcular el monto abonado hasta la fecha
+        $abonadoHastaLaFecha = $cuotas->where('estado', 'pagada')->sum('monto');
+
+        // Calcular el saldo pendiente
+        $saldoPendiente = $comprador->financiacion->monto_a_financiar - $abonadoHastaLaFecha;
+
+        return view('comprador_detalle', compact('comprador', 'cuotas', 'abonadoHastaLaFecha', 'saldoPendiente'));
     }
 
     public function index()
     {
-        $compradores = Comprador::all();
+        $compradores = Comprador::with(['financiacion.cuotas' => function ($query) {
+            $query->whereMonth('fecha_de_vencimiento', now()->month)
+                  ->whereYear('fecha_de_vencimiento', now()->year);
+        }])->get();
+
+        foreach ($compradores as $comprador) {
+            $cuotaActual = $comprador->financiacion->cuotas->first();
+            
+            if ($cuotaActual) {
+                // Determina el color del estado directamente
+                $estadoColor = $cuotaActual->estado_color;
+            } else {
+                $estadoColor = 'text-muted'; // Sin cuotas
+            }
+
+            // Pasar el color del estado a la vista
+            $comprador->estado_color = $estadoColor;
+        }
+
         return view('compradores_index', compact('compradores'));
     }
 
