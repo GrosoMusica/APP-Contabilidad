@@ -29,6 +29,64 @@
                     }
                 }
             }
+            
+            // Obtener solo las cuotas pagadas o con pago parcial de esta financiación
+            $cuotasPagadas = \App\Models\Cuota::where('financiacion_id', $comprador->financiacion->id)
+                ->whereIn('estado', ['pagada', 'parcial'])
+                ->get();
+            
+            // Obtener todos los pagos de estas cuotas
+            $cuotasIds = $cuotasPagadas->pluck('id')->toArray();
+            $pagos = \App\Models\Pago::whereIn('cuota_id', $cuotasIds)->get();
+            
+            // Calcular el monto total efectivamente pagado (en USD)
+            $totalPagado = $pagos->sum('monto_usd');
+            
+            // Obtener todas las distribuciones de pagos
+            $pagosIds = $pagos->pluck('id')->toArray();
+            $distribuciones = DB::table('distribucion_pagos')
+                ->whereIn('pago_id', $pagosIds)
+                ->get();
+                
+            // Inicializar array para acumular por acreedor
+            $acumulados = [];
+            foreach($acreedores as $acreedor) {
+                $acumulados[$acreedor->id] = [
+                    'debe' => 0,     // Lo que debería recibir según porcentaje de lo pagado
+                    'haber' => 0,    // Lo que realmente ha recibido
+                    'saldo' => 0     // La diferencia (haber - debe)
+                ];
+            }
+            
+            // Calcular el "debe" para cada acreedor (basado en porcentaje del monto ya pagado)
+            foreach($acreedores as $acreedor) {
+                $porcentaje = 0;
+                foreach($acreedor->financiaciones as $fin) {
+                    if($fin->id == $comprador->financiacion->id) {
+                        $porcentaje = $fin->pivot->porcentaje;
+                        break;
+                    }
+                }
+                // El "debe" es el porcentaje del total efectivamente pagado hasta ahora
+                $acumulados[$acreedor->id]['debe'] = ($totalPagado * $porcentaje) / 100;
+            }
+            
+            // Calcular el "haber" para cada acreedor (basado en distribuciones reales)
+            foreach($distribuciones as $dist) {
+                if (isset($acumulados[$dist->acreedor_id])) {
+                    $acumulados[$dist->acreedor_id]['haber'] += $dist->monto_usd;
+                    
+                    // Incluir cualquier excedente en el haber
+                    if ($dist->excedente > 0) {
+                        $acumulados[$dist->acreedor_id]['haber'] += $dist->excedente;
+                    }
+                }
+            }
+            
+            // Calcular el "saldo" (haber - debe): positivo = a favor del acreedor
+            foreach($acumulados as $acreedorId => $valores) {
+                $acumulados[$acreedorId]['saldo'] = $valores['haber'] - $valores['debe'];
+            }
         @endphp
         
         <!-- Tabla de acreedores -->
@@ -39,8 +97,8 @@
                         <th>Fecha Creación</th>
                         <th>Acreedor</th>
                         <th>Porcentaje</th>
-                        <th>Debe</th>
-                        <th>Haber</th>
+                        <th>Debe Recibir (de lo pagado)</th>
+                        <th>Ha Recibido</th>
                         <th>Saldo</th>
                     </tr>
                 </thead>
@@ -50,9 +108,14 @@
                         <td>{{ $comprador->financiacion->created_at->format('d/m/Y') }}</td>
                         <td><strong>{{ strtoupper('ADMIN') }}</strong></td>
                         <td><strong>{{ $adminPorcentaje }}%</strong></td>
-                        <td><!-- Pendiente --></td>
-                        <td><!-- Pendiente --></td>
-                        <td><!-- Pendiente --></td>
+                        <td class="text-end">U$D {{ number_format($acumulados[1]['debe'], 2) }}</td>
+                        <td class="text-end">U$D {{ number_format($acumulados[1]['haber'], 2) }}</td>
+                        <td class="text-end">
+                            <span class="{{ $acumulados[1]['saldo'] >= 0 ? 'text-success' : 'text-danger' }}">
+                                U$D {{ number_format(abs($acumulados[1]['saldo']), 2) }}
+                                <i class="fas fa-{{ $acumulados[1]['saldo'] >= 0 ? 'plus' : 'minus' }}-circle"></i>
+                            </span>
+                        </td>
                     </tr>
                     
                     <!-- Otros acreedores -->
@@ -70,12 +133,23 @@
                             <td>{{ $acreedor->created_at->format('d/m/Y') }}</td>
                             <td>{{ strtoupper($acreedor->nombre) }}</td>
                             <td>{{ $porcentaje }}%</td>
-                            <td><!-- Pendiente --></td>
-                            <td><!-- Pendiente --></td>
-                            <td><!-- Pendiente --></td>
+                            <td class="text-end">U$D {{ number_format($acumulados[$acreedor->id]['debe'], 2) }}</td>
+                            <td class="text-end">U$D {{ number_format($acumulados[$acreedor->id]['haber'], 2) }}</td>
+                            <td class="text-end">
+                                <span class="{{ $acumulados[$acreedor->id]['saldo'] >= 0 ? 'text-success' : 'text-danger' }}">
+                                    U$D {{ number_format(abs($acumulados[$acreedor->id]['saldo']), 2) }}
+                                    <i class="fas fa-{{ $acumulados[$acreedor->id]['saldo'] >= 0 ? 'plus' : 'minus' }}-circle"></i>
+                                </span>
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total Pagado:</strong></td>
+                        <td class="text-end" colspan="3"><strong>U$D {{ number_format($totalPagado, 2) }}</strong></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
         

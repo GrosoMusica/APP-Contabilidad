@@ -15,6 +15,9 @@
                     <a class="nav-link {{ request()->routeIs('lotes.*') ? 'active' : '' }}" href="{{ route('lotes.index') }}">LOTES</a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('pagos.*') ? 'active' : '' }}" href="{{ route('pagos.index') }}">PAGOS</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('informes.*') ? 'active' : '' }}" href="#">INFORMES</a>
                 </li>
                 <li class="nav-item">

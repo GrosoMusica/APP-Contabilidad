@@ -31,6 +31,14 @@ class Cuota extends Model
         return $this->belongsTo(Financiacion::class, 'financiacion_id');
     }
 
+    /**
+     * Relación con Pagos
+     */
+    public function pagos()
+    {
+        return $this->hasMany(Pago::class, 'cuota_id'); // Asegúrate de que 'cuota_id' sea el nombre correcto
+    }
+
     public function getEstadoColorAttribute()
     {
         if ($this->estado == 'pagada') {

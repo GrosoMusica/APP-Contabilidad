@@ -120,7 +120,7 @@
             
             <!-- Botón 7: Pagos -->
             <div class="col-md-3">
-                <a href="#" class="text-decoration-none">
+                <a href="{{ route('pagos.index') }}" class="text-decoration-none">
                     <div class="menu-button bg-dark text-white">
                         <i class="fas fa-credit-card menu-icon"></i>
                         <span class="menu-title">PAGOS</span>
