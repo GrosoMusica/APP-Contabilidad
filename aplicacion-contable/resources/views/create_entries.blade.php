@@ -43,6 +43,18 @@
             background-color: #218838; /* Verde más intenso */
             color: white;
         }
+        .csv-import-box {
+            background-color: #f8f9fa;
+            border: 1px dashed #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .csv-info {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -67,6 +79,27 @@
                 </ul>
             </div>
         @endif
+        
+        <!-- Sección de importación CSV -->
+        <div class="csv-import-box">
+            <h4><i class="fas fa-file-csv me-2"></i>Importar desde CSV</h4>
+            <form action="{{ route('entries.import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="mb-3">
+                    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload me-2"></i>Importar entradas
+                </button>
+            </form>
+            <div class="csv-info">
+                <p>El archivo CSV debe contener las siguientes columnas en este orden:</p>
+                <p><small>nombre, direccion, telefono, email, dni, manzana, lote, loteo, mts_cuadrados, monto_a_financiar, cantidad_de_cuotas, fecha_de_vencimiento</small></p>
+                <a href="{{ route('entries.template') }}" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="fas fa-download me-1"></i>Descargar plantilla
+                </a>
+            </div>
+        </div>
         
         <form action="{{ route('entries.store') }}" method="POST">
             @csrf

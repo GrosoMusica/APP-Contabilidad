@@ -43,3 +43,12 @@ Route::post('/pagos/registrar', [App\Http\Controllers\PagoController::class, 're
 Route::get('/pagos/comprobante/{id}', [App\Http\Controllers\PagoController::class, 'mostrarComprobante'])
     ->name('pagos.comprobante')
     ->middleware('auth'); // Asegúrate de tener middleware de autenticación configurado
+
+// Añade estas rutas junto a tus otras rutas de entries
+Route::post('/entries/import', [EntryController::class, 'import'])->name('entries.import');
+Route::get('/entries/template', [EntryController::class, 'downloadTemplate'])->name('entries.template');
+
+// Rutas para diagnóstico y corrección de relaciones
+Route::get('/diagnosticar-relaciones', [EntryController::class, 'diagnosticarRelaciones'])->name('diagnosticar.relaciones');
+Route::post('/corregir-relaciones', [EntryController::class, 'corregirRelaciones'])->name('corregir.relaciones');
+Route::get('/verificar-entrada/{id}', [EntryController::class, 'verificarEntrada'])->name('verificar.entrada');

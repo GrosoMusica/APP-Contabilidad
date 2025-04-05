@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Comprador;
 use App\Models\Acreedor;
+use App\Models\Lote;
+use App\Models\Financiacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompradorController extends Controller
 {
@@ -48,6 +51,9 @@ class CompradorController extends Controller
         return redirect()->route('compradores.index')->with('success', 'Estado de judicialización actualizado.');
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
         DB::beginTransaction();
@@ -66,8 +72,15 @@ class CompradorController extends Controller
             // Crear el nuevo comprador
             $comprador = Comprador::create($request->all());
 
+            // Crear el lote asociado al comprador
+            $lote = Lote::create([
+                'comprador_id' => $comprador->id,
+                // ... otros datos del lote ...
+            ]);
+
             // Crear la financiación asociada al comprador
-            $financiacion = $comprador->financiacion()->create([
+            $financiacion = Financiacion::create([
+                'comprador_id' => $comprador->id,
                 'monto_a_financiar' => $request->input('monto_a_financiar'),
                 // Otros campos de financiación...
             ]);
@@ -76,12 +89,18 @@ class CompradorController extends Controller
             $adminAcreedorId = 1; // ID del acreedor "admin"
             $comprador->acreedores()->attach($adminAcreedorId, ['porcentaje' => 100]);
 
+            // Establecer las relaciones en el comprador
+            $comprador->lote_comprado_id = $lote->id;
+            $comprador->financiacion_id = $financiacion->id;
+            $comprador->save();
+
             DB::commit();
 
             return redirect()->route('compradores.index')->with('success', 'Comprador creado exitosamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->withErrors('Error al crear el comprador: ' . $e->getMessage());
+            Log::error('Error al crear comprador: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al crear comprador: ' . $e->getMessage())->withInput();
         }
     }
 

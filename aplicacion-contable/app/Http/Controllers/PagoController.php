@@ -71,6 +71,7 @@ class PagoController extends Controller
             'monto_pagado' => 'required|numeric|min:0',
             'archivo_comprobante' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             'tipo_cambio' => 'required_if:pago_divisa,on|nullable|numeric|min:1',
+            'monto_usd' => 'required_if:pago_divisa,on|nullable|numeric|min:0',
         ]);
         
         // Obtener la cuota
@@ -89,10 +90,29 @@ class PagoController extends Controller
             // Determinar si es un pago en divisa (pesos)
             $pagoDivisa = $request->has('pago_divisa');
             
-            // Calcular monto en USD
-            $montoUsd = $pagoDivisa ? 
-                        $request->monto_pagado / $request->tipo_cambio : 
-                        $request->monto_pagado;
+            // Crear una nueva instancia del modelo Pago
+            $pago = new Pago();
+            
+            // Calcular monto en USD correctamente
+            if ($pagoDivisa) {
+                // Si el pago es en pesos, usar tipo_cambio para convertir a dólares
+                $montoUsd = $request->monto_pagado / $request->tipo_cambio;
+                
+                // Almacenar el monto original en pesos y el convertido en USD
+                $pago->monto_pagado = $request->monto_pagado; // Valor original en pesos
+                $pago->monto_usd = $montoUsd; // Valor convertido a dólares
+            } else {
+                // Si el pago es en dólares, usar el valor directamente
+                $montoUsd = $request->monto_pagado;
+                
+                // Ambos campos tienen el mismo valor (en dólares)
+                $pago->monto_pagado = $montoUsd;
+                $pago->monto_usd = $montoUsd;
+            }
+            
+            // Establecer los valores relacionados con la divisa
+            $pago->pago_divisa = $pagoDivisa ? 1 : 0;
+            $pago->tipo_cambio = $pagoDivisa ? $request->tipo_cambio : null;
             
             // Calcular monto total pagado hasta ahora y saldo pendiente
             $pagosPrevios = Pago::where('cuota_id', $cuota->id)->sum('monto_usd');
@@ -128,16 +148,11 @@ class PagoController extends Controller
             }
             
             // 2. Registrar el pago principal
-            $pago = new Pago();
             $pago->cuota_id = $cuota->id;
             $pago->acreedor_id = 1; // Admin por defecto
-            $pago->monto_pagado = $request->monto_pagado;
             $pago->comprobante = $comprobante;
             $pago->sin_comprobante = $request->has('sin_comprobante') ? 1 : 0;
             $pago->fecha_de_pago = $fechaSeleccionada;
-            $pago->pago_divisa = $pagoDivisa ? 1 : 0;
-            $pago->monto_usd = $montoEfectivoCuota; // Solo el monto aplicado a esta cuota
-            $pago->tipo_cambio = $pagoDivisa ? $request->tipo_cambio : null;
             $pago->saldo_pendiente = max(0, $montoPendienteEnCuota - $montoEfectivoCuota);
             $pago->created_at = $fechaSeleccionada;
             $pago->updated_at = $fechaSeleccionada;
@@ -186,12 +201,12 @@ class PagoController extends Controller
                     $pagoExcedente = new Pago();
                     $pagoExcedente->cuota_id = $siguienteCuota->id;
                     $pagoExcedente->acreedor_id = 1; // Admin por defecto
+                    $pagoExcedente->monto_usd = $excedente;
                     $pagoExcedente->monto_pagado = $pagoDivisa ? $excedente * $request->tipo_cambio : $excedente;
                     $pagoExcedente->comprobante = $comprobante;
                     $pagoExcedente->sin_comprobante = $request->has('sin_comprobante') ? 1 : 0;
                     $pagoExcedente->fecha_de_pago = $fechaSeleccionada;
                     $pagoExcedente->pago_divisa = $pagoDivisa ? 1 : 0;
-                    $pagoExcedente->monto_usd = $excedente;
                     $pagoExcedente->tipo_cambio = $pagoDivisa ? $request->tipo_cambio : null;
                     $pagoExcedente->saldo_pendiente = max(0, $saldoPendienteSiguiente - $excedente);
                     $pagoExcedente->created_at = $fechaSeleccionada;
@@ -283,4 +298,5 @@ class PagoController extends Controller
             'Content-Type' => $mime,
         ]);
     }
+
 } 

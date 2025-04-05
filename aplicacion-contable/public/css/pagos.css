@@ -1,0 +1,197 @@
+/* Estilos generales */
+body {
+    font-family: 'Nunito', sans-serif;
+    background-color: #f8f9fa;
+}
+
+.card {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #0d6efd;
+    color: white;
+    font-weight: bold;
+    border-radius: 8px 8px 0 0;
+}
+
+.filter-card {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+/* Estilos para cuotas */
+.cuota-card {
+    transition: transform 0.2s;
+    height: 100%;
+    border: 1px solid #dee2e6;
+}
+
+.cuota-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.cuota-header {
+    padding: 10px 15px;
+    font-weight: bold;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.cuota-pagada {
+    border-left: 5px solid #28a745;
+}
+
+.cuota-pendiente {
+    border-left: 5px solid #ffc107;
+}
+
+.cuota-vencida {
+    border-left: 5px solid #dc3545;
+}
+
+.cuota-adeuda {
+    border-left: 5px solid #dc3545;
+    background-color: #fff8f8;
+}
+
+.cuota-futura {
+    border-left: 5px solid #6c757d; /* Color gris que coincide con bg-secondary */
+}
+
+.cuota-parcial {
+    border-left: 5px solid #fd7e14;
+}
+
+/* Badges y elementos visuales */
+.badge-cuota {
+    font-size: 0.8rem;
+    padding: 5px 8px;
+    border-radius: 12px;
+}
+
+/* Animaciones */
+@keyframes highlightPaid {
+    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+.highlight-paid {
+    animation: highlightPaid 2s ease-in-out;
+}
+
+.estado-parcial {
+    animation: highlightPartial 2s ease-in-out;
+}
+
+@keyframes highlightPartial {
+    0% { box-shadow: 0 0 0 0 rgba(253, 126, 20, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(253, 126, 20, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(253, 126, 20, 0); }
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+@keyframes excedente-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Estilos para textos y colores */
+.text-primary {
+    color: #0d6efd !important;
+}
+
+.text-info {
+    color: #0dcaf0 !important;
+}
+
+/* Estilos para distribución de acreedores */
+.distribucion-acreedores {
+    background-color: rgba(13, 202, 240, 0.05);
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.fas.fa-asterisk.text-info {
+    animation: pulse 2s infinite;
+}
+
+/* Estilos para pagos */
+.pago-item {
+    position: relative;
+}
+
+.pago-item:after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: rgba(0,0,0,0.1);
+}
+
+/* Estilos para excedentes */
+.excedente-text {
+    color: #0d6efd !important;
+    font-weight: bold;
+}
+
+.badge-excedente {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.asterisco-excedente {
+    color: #0d6efd !important;
+    animation: pulse 2s infinite;
+}
+
+.excedente-highlight {
+    animation: excedente-pulse 2s infinite;
+}
+
+.excedente-arrow {
+    position: relative;
+    margin-top: 5px;
+    border-left: 2px dashed #0d6efd;
+    padding-left: 10px;
+}
+
+.excedente-arrow:before {
+    content: '↓';
+    position: absolute;
+    left: -7px;
+    top: -5px;
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+/* Estilos para saldos a favor */
+.saldo-favor {
+    color: #0d6efd !important;
+    font-weight: bold;
+    display: block;
+    margin-top: 5px;
+}
+
+.aplicado-anterior {
+    color: #0d6efd !important;
+    font-weight: bold;
+    display: block;
+    margin-top: 5px;
+}
+
+/* Estilos para cuotas con saldo aplicado */
+.cuota-con-saldo-aplicado {
+    border: 2px dashed #0d6efd;
+} 

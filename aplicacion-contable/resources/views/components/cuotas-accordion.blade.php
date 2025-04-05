@@ -45,6 +45,57 @@
                                 @endphp
                                 <span class="{{ $estadoClass }}" style="{{ $estiloAdicional }}">{{ $estadoMostrado }}</span>
                             </p>
+                            
+                            @if($cuota->pagos->count() > 0)
+                                <p>Fecha último pago: {{ $cuota->pagos->last()->fecha_de_pago->format('d/m/Y') }}</p>
+                                
+                                @php
+                                    // SIEMPRE calculamos el total en USD para operaciones internas
+                                    $totalPagadoUSD = $cuota->pagos->sum('monto_usd');
+                                    
+                                    // Determinamos si el último pago fue en pesos o dólares
+                                    $ultimoPago = $cuota->pagos->last();
+                                    $esPagoDivisa = $ultimoPago->pago_divisa == 1;
+                                    
+                                    // Preparamos la visualización según la moneda del último pago
+                                    if ($esPagoDivisa) {
+                                        // Si el último pago fue en pesos, mostrar todo en pesos
+                                        $monedaTexto = "ARS";
+                                        
+                                        // Sumamos todos los pagos originales en pesos (o convertimos los que eran en USD)
+                                        $pagosEnPesos = $cuota->pagos->filter(function($pago) {
+                                            return $pago->pago_divisa == 1;
+                                        });
+                                        
+                                        $pagosEnUSD = $cuota->pagos->filter(function($pago) {
+                                            return $pago->pago_divisa == 0;
+                                        });
+                                        
+                                        $totalEnPesos = $pagosEnPesos->sum('monto_pagado');
+                                        
+                                        // Convertimos los pagos en USD a pesos usando el tipo de cambio del último pago
+                                        $tipoCambioUltimo = $ultimoPago->tipo_cambio;
+                                        foreach ($pagosEnUSD as $pagoUSD) {
+                                            $totalEnPesos += $pagoUSD->monto_usd * $tipoCambioUltimo;
+                                        }
+                                        
+                                        $valorMostrado = $totalEnPesos;
+                                    } else {
+                                        // Si el último pago fue en USD, mostrar todo en USD
+                                        $monedaTexto = "USD";
+                                        $valorMostrado = $totalPagadoUSD;
+                                    }
+                                    
+                                    // Saldo a favor SIEMPRE calculado en USD para consistencia
+                                    $saldoFavor = max(0, $totalPagadoUSD - $cuota->monto);
+                                @endphp
+                                
+                                <p>Total pagado: {{ $monedaTexto }} {{ number_format($valorMostrado, 2) }}</p>
+                                
+                                @if($saldoFavor > 0)
+                                    <p>* Saldo a Favor USD {{ number_format($saldoFavor, 2) }}</p>
+                                @endif
+                            @endif
                         </li>
                     @endforeach
                 </ul>
