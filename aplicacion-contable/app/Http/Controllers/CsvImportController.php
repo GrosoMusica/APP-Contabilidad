@@ -100,6 +100,7 @@ class CsvImportController extends Controller
         // Procesar el archivo
         $totalSuccess = 0;
         $totalErrors = 0;
+        $totalDniDuplicados = 0; // Contador para DNIs duplicados
         $errors = [];
         $rowNumber = 1; // Empezamos en 1 porque la fila 0 es el encabezado
         
@@ -117,6 +118,14 @@ class CsvImportController extends Controller
                     foreach ($requiredColumns as $column) {
                         $index = $columnIndexes[$column];
                         $data[$column] = $row[$index] ?? null;
+                    }
+                    
+                    // Verificar si ya existe un comprador con el mismo DNI
+                    $dniExistente = Comprador::where('dni', $data['dni'])->first();
+                    if ($dniExistente) {
+                        $totalDniDuplicados++;
+                        $errors[] = "Fila {$rowNumber}: DNI '{$data['dni']}' ya existe para el comprador '{$dniExistente->nombre}'. Entrada omitida.";
+                        continue; // Saltar al siguiente registro
                     }
                     
                     // Crear el comprador
@@ -214,14 +223,26 @@ class CsvImportController extends Controller
             if ($totalSuccess > 0) {
                 DB::commit();
                 $message = "Se importaron {$totalSuccess} registros exitosamente.";
-                if ($totalErrors > 0) {
-                    $message .= " {$totalErrors} registros fallaron.";
+                
+                if ($totalDniDuplicados > 0) {
+                    $message .= " Se omitieron {$totalDniDuplicados} registros por DNI duplicado.";
                 }
+                
+                if ($totalErrors > 0) {
+                    $message .= " {$totalErrors} registros fallaron por otros errores.";
+                }
+                
                 return redirect()->back()->with('success', $message)->with('csv_errors', $errors);
             } else {
                 // Si todo falló, revertir la transacción
                 DB::rollBack();
-                return redirect()->back()->withErrors(['csv_file' => 'No se pudo importar ningún registro. Verifique el formato del CSV.'])->with('csv_errors', $errors);
+                
+                $errorMessage = 'No se pudo importar ningún registro.';
+                if ($totalDniDuplicados > 0) {
+                    $errorMessage .= " {$totalDniDuplicados} registros tenían DNIs duplicados.";
+                }
+                
+                return redirect()->back()->withErrors(['csv_file' => $errorMessage])->with('csv_errors', $errors);
             }
             
         } catch (\Exception $e) {
