@@ -22,6 +22,7 @@
                             <div class="mb-3">
                                 <label for="montoPagado" class="form-label">Monto Pagado</label>
                                 <div class="input-group">
+                                    <span class="input-group-text" id="simboloMoneda">U$D</span>
                                     <input type="number" step="0.01" class="form-control" id="montoPagado" name="monto_pagado" required>
                                     <div class="input-group-text">
                                         <div class="form-check form-switch mb-0">
@@ -33,7 +34,7 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="montoUsd" class="form-label">Monto USD</label>
+                                <label for="montoUsd" class="form-label">Monto USD (para cálculos internos)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">U$D</span>
                                     <input type="number" step="0.01" class="form-control" id="montoUsd" name="monto_usd" readonly>
@@ -76,4 +77,56 @@
             </form>
         </div>
     </div>
-</div> 
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pagoDivisaCheckbox = document.getElementById('pagoDivisa');
+    const montoPagadoInput = document.getElementById('montoPagado');
+    const montoUsdInput = document.getElementById('montoUsd');
+    const tipoCambioInput = document.getElementById('tipoCambio');
+    const simboloMoneda = document.getElementById('simboloMoneda');
+    
+    // Función para actualizar el valor de montoUsd basado en montoPagado
+    function actualizarMontoUsd() {
+        const esPagoEnPesos = pagoDivisaCheckbox.checked;
+        const montoPagado = parseFloat(montoPagadoInput.value) || 0;
+        const tipoCambio = parseFloat(tipoCambioInput.value) || 1250;
+        
+        // Actualizar el símbolo de la moneda
+        simboloMoneda.textContent = esPagoEnPesos ? "ARS $" : "U$D";
+        
+        // Calcular monto_usd
+        if (esPagoEnPesos) {
+            // Si pago es en pesos, convertir a USD
+            const montoUSD = montoPagado / tipoCambio;
+            montoUsdInput.value = montoUSD.toFixed(2);
+        } else {
+            // Si pago es en USD, usar el mismo valor
+            montoUsdInput.value = montoPagado.toFixed(2);
+        }
+        
+        // Actualizar el monto en la alerta
+        document.getElementById('montoAlerta').textContent = 'U$D ' + montoUsdInput.value;
+    }
+    
+    // Eventos
+    pagoDivisaCheckbox.addEventListener('change', actualizarMontoUsd);
+    montoPagadoInput.addEventListener('input', actualizarMontoUsd);
+    tipoCambioInput.addEventListener('input', actualizarMontoUsd);
+    
+    // Inicializar
+    actualizarMontoUsd();
+    
+    // Manejar checkbox "Sin comprobante"
+    document.getElementById('sinComprobante').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('archivoComprobanteContainer').style.display = 'none';
+            document.getElementById('alertaSinComprobante').classList.remove('d-none');
+        } else {
+            document.getElementById('archivoComprobanteContainer').style.display = 'block';
+            document.getElementById('alertaSinComprobante').classList.add('d-none');
+        }
+    });
+});
+</script> 

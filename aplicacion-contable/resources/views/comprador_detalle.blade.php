@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Estilos personalizados para pagos -->
+    <link href="{{ asset('css/pagos.css') }}" rel="stylesheet">
     <style>
         body {
             background-color: #f5f5f5; /* Fondo gris claro */
@@ -36,6 +38,26 @@
         }
         .accordion-button:focus {
             box-shadow: none;
+        }
+        /* Estilos para la grilla de cuotas */
+        #cuotasGrid {
+            display: none; /* Inicialmente oculto */
+        }
+        .cuota-card {
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .cuota-header {
+            padding: 8px 15px;
+            font-weight: bold;
+        }
+        .highlight-cuota {
+            animation: highlight 2s ease-in-out;
+        }
+        @keyframes highlight {
+            0% { background-color: rgba(255, 255, 0, 0.5); }
+            100% { background-color: transparent; }
         }
     </style>
 </head>
@@ -105,7 +127,7 @@
                 </div>
             </div>
 
-            <!-- Cuota Actual y Desplegable -->
+            <!-- Cuota Actual y Botón para mostrar todas las cuotas -->
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
@@ -115,68 +137,75 @@
                             $inicioMes = \Carbon\Carbon::now()->startOfMonth();
                             $finMes = \Carbon\Carbon::now()->endOfMonth();
                             
-                            // Asegurarse de que todas las fechas son instancias de Carbon
-                            foreach ($cuotas as $cuota) {
-                                if (!$cuota->fecha_de_vencimiento instanceof \Carbon\Carbon) {
-                                    $cuota->fecha_de_vencimiento = \Carbon\Carbon::parse($cuota->fecha_de_vencimiento);
-                                }
+                            // Encontrar la cuota actual pendiente más próxima
+                            $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
+                                                ->where('fecha_de_vencimiento', '>=', $hoy)
+                                                ->sortBy('fecha_de_vencimiento')
+                                                ->first();
+                            
+                            // Si no hay cuotas pendientes futuras, tomar la última pendiente
+                            if (!$cuotaActual) {
+                                $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
+                                                    ->sortByDesc('fecha_de_vencimiento')
+                                                    ->first();
                             }
-                            
-                            // Encontrar la cuota del mes actual (la más simple posible)
-                            $cuotaMesActual = $cuotas->first(function($cuota) use ($hoy) {
-                                return $cuota->fecha_de_vencimiento->month == $hoy->month &&
-                                       $cuota->fecha_de_vencimiento->year == $hoy->year;
-                            });
-                            
-                            // Si no hay cuota este mes, tomar la próxima
-                            if (!$cuotaMesActual) {
-                                $cuotaMesActual = $cuotas->where('fecha_de_vencimiento', '>', $hoy)
-                                                     ->sortBy('fecha_de_vencimiento')
-                                                     ->first();
-                            }
-                            
-                            // Contar cuotas atrasadas (simple)
-                            $cuotasAtrasadas = $cuotas->where('estado', '!=', 'pagada')
-                                                      ->where('estado', '!=', 'sin_comprobante')
-                                                      ->where('fecha_de_vencimiento', '<', $hoy)
-                                                      ->count();
-                            
-                            // Determinar estado general de la cuenta
-                            $estadoCuenta = $cuotasAtrasadas > 0 ? 'Cuotas atrasadas' : 'Al día';
-                            $claseCuenta = $cuotasAtrasadas > 0 ? 'text-danger' : 'text-success';
                         @endphp
-                        Cuota Mes Actual
-                        <p><strong>Fecha de Vencimiento:</strong> {{ $cuotaMesActual ? $cuotaMesActual->fecha_de_vencimiento->format('d-m-Y') : 'N/A' }}</p>
-                    </div>
-                    <div class="card-body">
-                        @if($cuotaMesActual)
-                            <p><strong>Monto:</strong> U$D {{ number_format($cuotaMesActual->monto, 2) }}</p>
-                            <p><strong>Estado:</strong> 
-                                @if($cuotaMesActual->estado == 'pagada' || $cuotaMesActual->estado == 'sin_comprobante')
-                                    <span class="text-success">Pagada</span>
-                                @elseif($cuotaMesActual->fecha_de_vencimiento < $hoy)
-                                    <span class="text-danger" style="{{ $cuotaMesActual->fecha_de_vencimiento->month < $hoy->month ? 'border:2px solid red; padding:2px 5px; display:inline-block;' : '' }}">
-                                        {{ $cuotaMesActual->fecha_de_vencimiento->month < $hoy->month ? 'Adeuda' : 'Vencida' }}
-                                    </span>
-                                @else
-                                    <span class="text-warning">Pendiente</span>
-                                @endif
-                            </p>
-                        @else
-                            <p>No hay cuotas programadas para el mes actual.</p>
-                        @endif
-                        
-                        <!-- Indicador de estado de cuenta -->
-                        <div class="alert {{ $cuotasAtrasadas > 0 ? 'alert-danger' : 'alert-success' }} mt-3">
-                            <strong>Estado de cuenta:</strong> <span class="{{ $claseCuenta }}">{{ $estadoCuenta }}</span>
-                            @if($cuotasAtrasadas > 0)
-                                <br>Hay {{ $cuotasAtrasadas }} cuota(s) atrasada(s).
-                            @endif
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Cuota Actual</span>
+                            <button id="mostrarCuotasBtn" class="btn btn-sm btn-primary">
+                                <i class="fas fa-th me-1"></i> Mostrar vista de cuotas
+                            </button>
                         </div>
                     </div>
-
-                    <!-- Desplegable de Cuotas -->
-                    <x-cuotas-accordion :cuotas="$cuotas" :inicioMes="$inicioMes" :hoy="$hoy" :finMes="$finMes" />
+                    <div class="card-body">
+                        @if($cuotaActual)
+                            <div class="d-flex justify-content-between mb-3">
+                                <div>
+                                    <h5>Cuota #{{ $cuotaActual->numero_de_cuota }}</h5>
+                                    <p class="mb-1">Monto: U$D {{ number_format($cuotaActual->monto, 2) }}</p>
+                                    <p>Vencimiento: {{ $cuotaActual->fecha_de_vencimiento->format('d-m-Y') }}</p>
+                                    
+                                    @if($cuotaActual->estado === 'parcial')
+                                        @php
+                                            $totalPagado = $cuotaActual->pagos->sum('monto_usd');
+                                            $saldoPendiente = $cuotaActual->monto - $totalPagado;
+                                        @endphp
+                                        <p class="text-warning">
+                                            <i class="fas fa-exclamation-circle me-1"></i>
+                                            Pagado parcialmente. Pendiente: U$D {{ number_format($saldoPendiente, 2) }}
+                                        </p>
+                                    @endif
+                                </div>
+                                <div>
+                                    <a href="{{ route('pagos.index', ['comprador_id' => $comprador->id]) }}" class="btn btn-success">
+                                        <i class="fas fa-money-bill-wave me-1"></i> Registrar Pago
+                                    </a>
+                                </div>
+                            </div>
+                        @else
+                            <div class="text-center my-3">
+                                <p class="text-success"><i class="fas fa-check-circle fa-2x mb-2"></i></p>
+                                <p>¡Todas las cuotas han sido pagadas!</p>
+                            </div>
+                        @endif
+                        
+                        <hr class="my-3">
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="mb-1"><strong>Resumen de Cuotas</strong></p>
+                                <p class="small mb-0">Total Cuotas: {{ $cuotas->count() }}</p>
+                                <p class="small mb-0">Pagadas: {{ $cuotas->where('estado', 'pagada')->count() }}</p>
+                                <p class="small mb-0">Pendientes: {{ $cuotas->where('estado', '!=', 'pagada')->count() }}</p>
+                            </div>
+                            <div>
+                                <a href="{{ route('pagos.index', ['comprador_id' => $comprador->id]) }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-list me-1"></i> Ver Detalle de Pagos
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -184,10 +213,68 @@
             <div class="col-md-12 mt-4">
                 <x-acreedores :acreedores="$acreedores" :comprador="$comprador" />
             </div>
+            
+            <!-- Grilla de Cuotas (inicialmente oculta) -->
+            <div class="row mt-4" id="cuotasGrid" style="display: none;">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Vista Completa de Cuotas</h5>
+                                <a href="{{ route('pagos.index', ['comprador_id' => $comprador->id]) }}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-money-bill-wave me-1"></i> Registrar Pagos
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <x-cuotas-grid :cuotas="$cuotas" :showRegistrarPago="false" />
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mostrar/ocultar la grilla de cuotas
+            const mostrarCuotasBtn = document.getElementById('mostrarCuotasBtn');
+            const cuotasGrid = document.getElementById('cuotasGrid');
+            
+            mostrarCuotasBtn.addEventListener('click', function() {
+                if (cuotasGrid.style.display === 'none' || cuotasGrid.style.display === '') {
+                    cuotasGrid.style.display = 'block';
+                    this.innerHTML = '<i class="fas fa-times me-1"></i> Ocultar vista de cuotas';
+                    // Scroll suave hasta la grilla
+                    cuotasGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    cuotasGrid.style.display = 'none';
+                    this.innerHTML = '<i class="fas fa-th me-1"></i> Mostrar vista de cuotas';
+                }
+            });
+            
+            // Scroll hacia la cuota pagada (si existe en la sesión)
+            @if(session('cuota_pagada_id'))
+                setTimeout(function() {
+                    // Mostrar el grid
+                    cuotasGrid.style.display = 'block';
+                    mostrarCuotasBtn.innerHTML = '<i class="fas fa-times me-1"></i> Ocultar vista de cuotas';
+                    
+                    // Buscar la cuota en la grilla
+                    const cuotaCards = document.querySelectorAll('.cuota-card');
+                    for (let i = 0; i < cuotaCards.length; i++) {
+                        if (cuotaCards[i].querySelector('[data-cuota-id="{{ session("cuota_pagada_id") }}"]')) {
+                            cuotaCards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            cuotaCards[i].classList.add('highlight-cuota');
+                            break;
+                        }
+                    }
+                }, 500);
+            @endif
+        });
+    </script>
 </body>
 </html> 

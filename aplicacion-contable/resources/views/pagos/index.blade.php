@@ -187,22 +187,10 @@
                                     $estadoText = 'Futura';
                                 }
                                 
-                                // Obtener pagos y calcular saldo pendiente
+                                // Obtener pagos y calcular saldo pendiente usando monto_usd
                                 $pagos = \App\Models\Pago::where('cuota_id', $cuota->id)->orderBy('created_at', 'desc')->get();
-                                $totalPagado = $pagos->sum('monto_pagado');
+                                $totalPagado = $pagos->sum('monto_usd');
                                 $saldoPendiente = $cuota->monto - $totalPagado;
-                                
-                                // Calcular excedente (saldo a favor)
-                                $saldoAFavor = max(0, $totalPagado - $cuota->monto);
-                                
-                                // Verificar si esta cuota recibió excedente de otra
-                                $montoExcedenteRecibido = 0;
-                                
-                                foreach ($pagos as $pago) {
-                                    if ($pago->sin_comprobante && !$pago->comprobante) {
-                                        $montoExcedenteRecibido += $pago->monto_pagado;
-                                    }
-                                }
                             @endphp
                             
                             <div class="col">
@@ -229,56 +217,63 @@
                                                 
                                                 @if($pagos->count() > 0)
                                                     <small class="text-muted d-block">
-                                                        Total pagado: USD {{ number_format($totalPagado, 2) }}
+                                                        @php
+                                                            $totalPagadoUSD = $pagos->sum('monto_usd');
+                                                            $totalPagadoPesos = $pagos->where('pago_divisa', 1)->sum('monto_pagado');
+                                                            $totalPagadoDirectoUSD = $pagos->where('pago_divisa', 0)->sum('monto_usd');
+                                                            
+                                                            // Si hubo pagos en pesos, mostrar el total en ambas monedas
+                                                            $mostrarDobleMoneda = $totalPagadoPesos > 0 && $totalPagadoDirectoUSD > 0;
+                                                        @endphp
+                                                        
+                                                        Total pagado: 
+                                                        @if($mostrarDobleMoneda)
+                                                            ARS ${{ number_format($totalPagadoPesos, 2) }} + USD {{ number_format($totalPagadoDirectoUSD, 2) }}
+                                                            <br>(Total USD: {{ number_format($totalPagadoUSD, 2) }})
+                                                        @elseif($totalPagadoPesos > 0)
+                                                            ARS ${{ number_format($totalPagadoPesos, 2) }}
+                                                            <br>(Equivale a USD {{ number_format($totalPagadoUSD, 2) }})
+                                                        @else
+                                                            USD {{ number_format($totalPagadoUSD, 2) }}
+                                                        @endif
                                                     </small>
                                                     
                                                     @if($cuota->estado === 'parcial')
                                                         <small class="text-danger d-block">
                                                             <strong>Saldo pendiente: USD {{ number_format($saldoPendiente, 2) }}</strong>
                                                         </small>
-                                                    @endif
-                                                    
-                                                    <!-- SALDO A FAVOR EN LA CUOTA DONDE SE GENERÓ -->
-                                                    @if($saldoAFavor > 0)
-                                                        <small class="saldo-favor">
-                                                            <strong>* Saldo a Favor USD {{ number_format($saldoAFavor, 2) }}</strong>
+                                                    @elseif($saldoPendiente < 0)
+                                                        <!-- Solo mostrar el excedente si no hay saldo pendiente -->
+                                                        <small class="text-primary d-block">
+                                                            <strong>Saldo excedente: USD {{ number_format(abs($saldoPendiente), 2) }}</strong>
                                                         </small>
                                                     @endif
                                                     
-                                                    <!-- EXCEDENTE APLICADO A ESTA CUOTA - desde cuota anterior -->
-                                                    @if($montoExcedenteRecibido > 0 && $cuota->estado !== 'pagada')
-                                                        <small class="aplicado-anterior">
-                                                            <i class="fas fa-asterisk"></i>
-                                                            <strong>* USD {{ number_format($montoExcedenteRecibido, 2) }} (pago anterior)</strong>
-                                                        </small>
-                                                    @endif
-                                                    
-                                                    <!-- PAGOS NORMALES DE ESTA CUOTA -->
+                                                    <!-- PAGOS -->
                                                     @foreach($pagos as $pago)
-                                                        <!-- No mostrar pagos automáticos (excedentes) en el listado normal -->
-                                                        @if(!($pago->sin_comprobante && !$pago->comprobante))
-                                                            <div class="pago-item border-top mt-2 pt-1">
-                                                                <small class="text-muted d-block">
-                                                                    <i class="fas fa-receipt"></i>
-                                                                    Pago {{ $loop->iteration }}: 
-                                                                    @if($pago->pago_divisa)
-                                                                        ${{ number_format($pago->monto_pagado, 2) }} ARS
-                                                                        <span class="d-block">(U$D {{ number_format($pago->monto_usd, 2) }})</span>
-                                                                    @else
-                                                                        U$D {{ number_format($pago->monto_pagado, 2) }}
-                                                                    @endif
-                                                                    <span class="d-block">{{ $pago->fecha_de_pago->format('d/m/Y') }}</span>
-                                                                </small>
-                                                                
-                                                                @if($pago->comprobante && !$pago->sin_comprobante)
-                                                                    <a href="{{ route('pagos.comprobante', $pago->id) }}" 
-                                                                       class="btn btn-sm btn-outline-info mt-1" 
-                                                                       target="_blank">
-                                                                        <i class="fas fa-eye me-1"></i> Ver comprobante
-                                                                    </a>
+                                                        <div class="pago-item border-top mt-2 pt-1">
+                                                            <small class="{{ isset($pago->es_pago_excedente) && $pago->es_pago_excedente ? 'text-primary' : 'text-muted' }} d-block">
+                                                                <i class="{{ isset($pago->es_pago_excedente) && $pago->es_pago_excedente ? 'fas fa-star' : 'fas fa-receipt' }}"></i>
+                                                                @if($pago->pago_divisa)
+                                                                    ${{ number_format($pago->monto_pagado, 2) }} ARS
+                                                                @else
+                                                                    U$D {{ number_format($pago->monto_usd, 2) }}
                                                                 @endif
-                                                            </div>
-                                                        @endif
+                                                                <span class="d-block">{{ $pago->fecha_de_pago->format('d/m/Y') }}</span>
+                                                                
+                                                                @if(isset($pago->es_pago_excedente) && $pago->es_pago_excedente)
+                                                                    <span class="text-primary d-block"><strong>* Pago con saldo excedente</strong></span>
+                                                                @endif
+                                                            </small>
+                                                            
+                                                            @if($pago->comprobante)
+                                                                <a href="{{ route('pagos.comprobante', $pago->id) }}" 
+                                                                  class="btn btn-sm btn-outline-info mt-1" 
+                                                                  target="_blank">
+                                                                    <i class="fas fa-eye me-1"></i> Ver comprobante
+                                                                </a>
+                                                            @endif
+                                                        </div>
                                                     @endforeach
                                                 @endif
                                             </div>
