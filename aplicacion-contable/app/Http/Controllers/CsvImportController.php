@@ -7,6 +7,7 @@ use App\Models\Comprador;
 use App\Models\Lote;
 use App\Models\Financiacion;
 use App\Models\Cuota;
+use App\Models\Acreedor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -111,17 +112,14 @@ class CsvImportController extends Controller
                 $rowNumber++;
                 
                 try {
-                    // Extraer datos de la fila usando el mapeo de índices
+                    // Mapear datos de la fila a un array asociativo usando los índices correctos
                     $data = [];
                     foreach ($requiredColumns as $column) {
-                        if (isset($columnIndexes[$column]) && isset($row[$columnIndexes[$column]])) {
-                            $data[$column] = trim($row[$columnIndexes[$column]]);
-                        } else {
-                            throw new \Exception("Falta el valor para la columna {$column}");
-                        }
+                        $index = $columnIndexes[$column];
+                        $data[$column] = $row[$index] ?? null;
                     }
                     
-                    // SIEMPRE crear un nuevo comprador
+                    // Crear el comprador
                     $comprador = new Comprador();
                     $comprador->nombre = $data['nombre'];
                     $comprador->direccion = $data['direccion'];
@@ -137,6 +135,7 @@ class CsvImportController extends Controller
                     $lote->loteo = $data['loteo'];
                     $lote->mts_cuadrados = $data['mts_cuadrados'];
                     $lote->estado = 'comprado';
+                    $lote->comprador_id = $comprador->id; // Asociar el lote con el comprador
                     $lote->save();
                     
                     // Crear la financiación y asociarla solo con el comprador
@@ -173,8 +172,6 @@ class CsvImportController extends Controller
                     $financiacion->save();
                     
                     // Generar las cuotas
-                    // Aquí ya no necesitamos calcular el monto por cuota de nuevo, podemos usar el valor ya calculado
-                    
                     // Fecha base para las cuotas (el día 5 del mes siguiente a la fecha de vencimiento)
                     $fechaBase = $fechaVencimiento->copy()->addMonth();
                     $fechaBase->day = 5; // Fijar al día 5
@@ -184,6 +181,7 @@ class CsvImportController extends Controller
                         $cuota->financiacion_id = $financiacion->id; // Asociación con financiación
                         $cuota->monto = $montoPorCuota;
                         $cuota->estado = 'pendiente';
+                        $cuota->numero_de_cuota = $i + 1;  // Añadir número de cuota
                         
                         // Calcular fecha de vencimiento (día 5 de cada mes)
                         $fechaCuota = $fechaBase->copy()->addMonths($i);
@@ -191,6 +189,17 @@ class CsvImportController extends Controller
                         
                         $cuota->save();
                     }
+                    
+                    // Asociar la financiación al acreedor "admin" (igual que en EntryController)
+                    $adminAcreedor = Acreedor::firstOrCreate(['nombre' => 'admin'], ['saldo' => 0]);
+                    $financiacion->acreedores()->attach($adminAcreedor->id, ['porcentaje' => 100]);
+                    
+                    // Establecer las relaciones en el comprador (igual que en EntryController)
+                    $comprador->lote_comprado_id = $lote->id;
+                    $comprador->financiacion_id = $financiacion->id;
+                    $comprador->save();
+                    
+                    Log::info("CSV Import - Relaciones establecidas: comprador={$comprador->id}, lote_comprado_id={$lote->id}, financiacion_id={$financiacion->id}");
                     
                     $totalSuccess++;
                     
