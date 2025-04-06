@@ -11,51 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f5f5dc; /* Color crema claro */
-            font-family: 'Nunito', sans-serif;
-        }
-        h4 {
-            text-transform: uppercase;
-            font-size: 1.25rem; /* Tamaño de fuente más pequeño */
-            font-weight: bold; /* Texto en negrita */
-            text-align: center; /* Centrar texto */
-        }
-        .section-border {
-            border: 1px solid #ccc;
-            padding: 15px;
-            margin-bottom: 20px;
-            background-color: #fff; /* Fondo blanco para las secciones */
-        }
-        .form-control {
-            background-color: #fff; /* Fondo blanco para los inputs */
-        }
-        .btn-submit {
-            display: block;
-            width: 100%;
-            max-width: 200px;
-            margin: 20px auto; /* Centrar el botón */
-            background-color: #28a745; /* Color verde */
-            border-color: #28a745;
-        }
-        .alert-success {
-            background-color: #218838; /* Verde más intenso */
-            color: white;
-        }
-        .csv-import-box {
-            background-color: #f8f9fa;
-            border: 1px dashed #ccc;
-            padding: 15px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .csv-info {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-top: 10px;
-        }
-    </style>
+    <!-- Custom CSS -->
+    <link href="{{ asset('css/create_entries.css') }}" rel="stylesheet">
 </head>
 <body>
     <!-- Navegación -->
@@ -63,13 +20,14 @@
 
     <div class="container mt-5">
         <h1 class="text-center">Crear Entradas</h1>
+        
+        <!-- Mostrar éxito y errores -->
         @if (session('success'))
             <div class="alert alert-success">
                 {{ session('success') }}
             </div>
         @endif
 
-        <!-- Mostrar errores -->
         @if ($errors->any())
             <div class="alert alert-danger">
                 <ul>
@@ -80,27 +38,19 @@
             </div>
         @endif
         
-        <!-- Sección de importación CSV -->
-        <div class="csv-import-box">
-            <h4><i class="fas fa-file-csv me-2"></i>Importar desde CSV</h4>
-            <form action="{{ route('entries.import') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="mb-3">
-                    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv">
-                </div>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-upload me-2"></i>Importar entradas
-                </button>
-            </form>
-            <div class="csv-info">
-                <p>El archivo CSV debe contener las siguientes columnas en este orden:</p>
-                <p><small>nombre, direccion, telefono, email, dni, manzana, lote, loteo, mts_cuadrados, monto_a_financiar, cantidad_de_cuotas, fecha_de_vencimiento</small></p>
-                <a href="{{ route('entries.template') }}" class="btn btn-sm btn-outline-secondary mt-2">
-                    <i class="fas fa-download me-1"></i>Descargar plantilla
-                </a>
+        <!-- Mostrar errores específicos del CSV -->
+        @if (session('csv_errors'))
+            <div class="alert alert-warning">
+                <h5>Detalles de errores en la importación:</h5>
+                <ul>
+                    @foreach (session('csv_errors') as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
             </div>
-        </div>
+        @endif
         
+        <!-- Formulario para crear entrada individual -->
         <form action="{{ route('entries.store') }}" method="POST">
             @csrf
             <div class="row">
@@ -187,6 +137,68 @@
 
             <button type="submit" class="btn btn-success btn-submit">Guardar</button>
         </form>
+        
+        <!-- Separador -->
+        <hr class="my-5">
+        
+        <!-- Desplegable para importación masiva (MOVIDO AL FINAL) -->
+        <div class="accordion mb-4" id="importAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingImport">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#collapseImport" aria-expanded="false" aria-controls="collapseImport">
+                        <i class="fas fa-file-csv me-2"></i> Importación Masiva desde CSV
+                    </button>
+                </h2>
+                <div id="collapseImport" class="accordion-collapse collapse" aria-labelledby="headingImport" data-bs-parent="#importAccordion">
+                    <div class="accordion-body">
+                        <div class="csv-import-box">
+                            <p class="text-muted mb-3">Cargue un archivo CSV con múltiples entradas para procesarlas en lote.</p>
+                            <form action="{{ route('entries.import') }}" method="POST" enctype="multipart/form-data">
+                                @csrf
+                                <div class="mb-3">
+                                    <label for="csv_file" class="form-label">Seleccione el archivo CSV</label>
+                                    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv">
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-upload me-2"></i>Importar entradas
+                                        </button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <a href="{{ route('entries.template') }}" class="btn btn-outline-secondary w-100">
+                                            <i class="fas fa-download me-1"></i>Descargar plantilla
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+                            <div class="csv-info mt-3">
+                                <p class="fw-bold">El archivo CSV debe contener las siguientes columnas:</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Comprador</th>
+                                                <th>Lote</th>
+                                                <th>Financiación</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>nombre, direccion, telefono, email, dni</td>
+                                                <td>manzana, lote, loteo, mts_cuadrados</td>
+                                                <td>monto_a_financiar, cantidad_de_cuotas, fecha_de_vencimiento</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Bootstrap JS -->

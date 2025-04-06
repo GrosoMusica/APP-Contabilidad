@@ -7,6 +7,7 @@ use App\Http\Controllers\CompradorController;
 use App\Http\Controllers\AcreedorController;
 use App\Http\Controllers\LoteController;
 use App\Http\Controllers\PagoController;
+use App\Http\Controllers\CsvImportController;
 
 // Ruta para crear entradas
 Route::get('/create-entries', function () {
@@ -44,9 +45,13 @@ Route::get('/pagos/comprobante/{id}', [App\Http\Controllers\PagoController::clas
     ->name('pagos.comprobante')
     ->middleware('auth'); // Asegúrate de tener middleware de autenticación configurado
 
-// Añade estas rutas junto a tus otras rutas de entries
-Route::post('/entries/import', [EntryController::class, 'import'])->name('entries.import');
-Route::get('/entries/template', [EntryController::class, 'downloadTemplate'])->name('entries.template');
+// Rutas para la creación de entradas
+Route::get('/entries/create', [EntryController::class, 'create'])->name('entries.create');
+Route::post('/entries/store', [EntryController::class, 'store'])->name('entries.store');
+
+// Rutas para importación CSV (usando el nuevo controlador)
+Route::post('/csv/import', [CsvImportController::class, 'import'])->name('entries.import');
+Route::get('/csv/template', [CsvImportController::class, 'downloadTemplate'])->name('entries.template');
 
 // Rutas para diagnóstico y corrección de relaciones
 Route::get('/diagnosticar-relaciones', [EntryController::class, 'diagnosticarRelaciones'])->name('diagnosticar.relaciones');
