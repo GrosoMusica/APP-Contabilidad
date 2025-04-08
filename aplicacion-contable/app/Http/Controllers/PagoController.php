@@ -75,9 +75,10 @@ class PagoController extends Controller
             
             // Validar solo lo esencial
             $request->validate([
-                'cuota_id' => 'required',
+                'cuota_id' => 'required|integer',
+                'fecha_de_pago' => 'required|date',
                 'monto_pagado' => 'required|numeric',
-                'monto_usd' => 'required|numeric',
+                'archivo_comprobante' => 'nullable|file|mimes:jpg,png,pdf|max:2048',
             ]);
             
             // Obtener la cuota
@@ -87,23 +88,36 @@ class PagoController extends Controller
                 return redirect()->back()->with('error', 'No se encontró la cuota especificada.');
             }
             
+            $rutaComprobante = null;
+
+            if ($request->hasFile('archivo_comprobante')) {
+                // Obtener el ID del comprador, su nombre, y el número de cuota asociado a la cuota
+                $comprador = $cuota->financiacion->comprador;
+                $compradorId = $comprador->id;
+                $compradorNombre = preg_replace('/[^A-Za-z0-9\-]/', '', str_replace(' ', '-', $comprador->nombre)); // Limpiar el nombre
+                $numeroDeCuota = $cuota->numero_de_cuota;
+                $fechaDePago = $request->fecha_de_pago;
+
+                // Definir el nombre del archivo
+                $nombreArchivo = "CUOTA-{$numeroDeCuota}-{$fechaDePago}.png";
+
+                // Definir la ruta de almacenamiento
+                $rutaComprobante = $request->file('archivo_comprobante')->storeAs(
+                    "COMPROBANTES/{$compradorId}-{$compradorNombre}",
+                    $nombreArchivo
+                );
+            }
+            
             // Crear pago con datos mínimos
             $pago = new Pago();
             $pago->cuota_id = $request->cuota_id;
-            $pago->fecha_de_pago = $request->fecha_de_pago ?? now();
+            $pago->fecha_de_pago = $request->fecha_de_pago;
             $pago->monto_pagado = $request->monto_pagado;
             $pago->pago_divisa = $request->has('pago_divisa') ? 1 : 0;
             $pago->monto_usd = $request->monto_usd;
             $pago->acreedor_id = $request->acreedor_id ?? 1;
             $pago->sin_comprobante = $request->has('sin_comprobante') ? 1 : 0;
-            
-            // Manejo simplificado del comprobante
-            if ($request->hasFile('archivo_comprobante')) {
-                $file = $request->file('archivo_comprobante');
-                $filename = 'comprobante_' . time() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('comprobantes', $filename, 'public');
-                $pago->ruta_comprobante = $path;
-            }
+            $pago->comprobante = $rutaComprobante;
             
             // Guardar el pago
             $pago->save();
@@ -148,6 +162,7 @@ class PagoController extends Controller
                         $pagoCuotaSiguiente->sin_comprobante = true; // Sin comprobante físico
                         $pagoCuotaSiguiente->acreedor_id = 1; // Valor fijo para acreedor_id
                         $pagoCuotaSiguiente->es_pago_excedente = 1; // Marcar este pago como generado por excedente (1 = true en MySQL)
+                        $pagoCuotaSiguiente->comprobante = null; // No se guarda el comprobante
                         $pagoCuotaSiguiente->save();
                         
                         // Actualizar el excedente restante
@@ -219,11 +234,11 @@ class PagoController extends Controller
         try {
             $pago = Pago::findOrFail($id);
             
-            if (!$pago->ruta_comprobante) {
+            if (!$pago->comprobante) {
                 return abort(404, 'No se encontró el comprobante');
             }
             
-            return Storage::disk('public')->response($pago->ruta_comprobante);
+            return Storage::disk('public')->response($pago->comprobante);
         } catch (\Exception $e) {
             Log::error('Error al mostrar comprobante', [
                 'id' => $id,

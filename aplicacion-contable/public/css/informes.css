@@ -1,0 +1,86 @@
+/* Estilos para las vistas de informes */
+
+/* Estilos para la barra superior */
+.topbar {
+    background-color: #343a40;
+    padding: 10px 0;
+    color: white;
+}
+
+/* Estilos para la barra lateral */
+.sidebar {
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 56px);
+    padding-top: 20px;
+}
+
+.nav-link {
+    color: #495057;
+    padding: 10px 15px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+    background-color: #e9ecef;
+}
+
+.nav-link.active {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Estilos para las secciones de informes */
+.informe-section {
+    display: none;
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.informe-section.active {
+    display: block;
+}
+
+/* Estilos para la información de balance */
+.balance-info {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.balance-info .card {
+    transition: transform 0.3s ease;
+}
+
+.balance-info .card:hover {
+    transform: translateY(-5px);
+}
+
+/* Estilos para las tablas */
+.table-responsive {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+/* Estilos para los botones de acción */
+.action-btn {
+    margin-right: 5px;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}

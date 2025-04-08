@@ -11,36 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #f8f9fa;
-        }
-        .menu-button {
-            height: 180px;
-            border-radius: 10px;
-            transition: transform 0.3s ease;
-            margin-bottom: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .menu-button:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        }
-        .menu-icon {
-            font-size: 3rem;
-            margin-bottom: 10px;
-        }
-        .menu-title {
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-    </style>
+    <!-- Estilos globales de la aplicación -->
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body class="antialiased">
     <!-- Navegación -->
@@ -110,7 +82,7 @@
             
             <!-- Botón 6: Informes -->
             <div class="col-md-3">
-                <a href="#" class="text-decoration-none">
+                <a href="{{ route('informes.index') }}" class="text-decoration-none">
                     <div class="menu-button bg-secondary text-white">
                         <i class="fas fa-chart-bar menu-icon"></i>
                         <span class="menu-title">INFORMES</span>
