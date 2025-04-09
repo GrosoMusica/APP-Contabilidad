@@ -11,107 +11,110 @@ use Illuminate\Support\Facades\Log;
 
 class InformeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         Log::info("Método index de InformeController iniciado");
         
         try {
-            $mesActual = Carbon::now()->month;
-            $anoActual = Carbon::now()->year;
+            // Obtener mes y año de los parámetros de la solicitud o usar valores actuales
+            $mesConsultado = $request->input('mes', Carbon::now()->month);
+            $anoConsultado = $request->input('ano', Carbon::now()->year);
             
             // Crear diagnóstico básico que siempre debe existir
             $diagnostico = [
                 'fecha_actual' => Carbon::now()->format('Y-m-d H:i:s'),
-                'mes_consultado' => $mesActual,
-                'ano_consultado' => $anoActual,
+                'mes_consultado' => $mesConsultado,
+                'ano_consultado' => $anoConsultado,
                 'pasos' => []
             ];
             
             Log::info("Diagnóstico básico creado", $diagnostico);
             
-            // PASO 1: Verificar cuotas en el mes actual
-            $diagnostico['pasos'][] = [
-                'paso' => '1. Cuotas en el mes actual',
-                'consulta' => "SELECT * FROM cuotas WHERE MONTH(fecha_de_vencimiento) = $mesActual AND YEAR(fecha_de_vencimiento) = $anoActual",
-                'resultado' => $this->ejecutarConsulta("SELECT * FROM cuotas WHERE MONTH(fecha_de_vencimiento) = ? AND YEAR(fecha_de_vencimiento) = ?", [$mesActual, $anoActual])
+            // Fecha para cálculos basada en el mes y año consultados
+            $fechaConsulta = Carbon::createFromDate($anoConsultado, $mesConsultado, 1);
+            $primerDiaMes = $fechaConsulta->copy()->startOfMonth();
+            $ultimoDiaMes = $fechaConsulta->copy()->endOfMonth();
+            
+            // Array para almacenar los resultados del diagnóstico
+            $diagnostico['pasos'] = []; // Inicializar el array pasos para evitar errores
+            
+            // Paso 1: Obtener todas las cuotas del mes consultado
+            $diagnostico['pasos'][0] = [
+                'paso' => '1. Cuotas en el mes consultado',
+                'sql' => "SELECT c.*, c.monto as monto FROM cuotas c WHERE fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'",
+                'resultado' => DB::select("SELECT c.*, c.monto as monto FROM cuotas c WHERE fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'")
             ];
             
-            // PASO 2: Verificar JOIN con financiaciones y compradores
-            $diagnostico['pasos'][] = [
+            // Paso 2: JOIN con financiaciones y compradores para obtener información completa
+            $diagnostico['pasos'][1] = [
                 'paso' => '2. JOIN con financiaciones y compradores',
-                'consulta' => "SELECT c.id as cuota_id, c.monto, c.estado, c.financiacion_id, c.fecha_de_vencimiento, 
-                              com.id as comprador_id, com.nombre, com.email
-                              FROM cuotas c
-                              JOIN financiaciones f ON c.financiacion_id = f.id
-                              JOIN compradores com ON f.comprador_id = com.id
-                              WHERE MONTH(c.fecha_de_vencimiento) = $mesActual
-                              AND YEAR(c.fecha_de_vencimiento) = $anoActual",
-                'resultado' => $this->ejecutarConsulta(
-                    "SELECT c.id as cuota_id, c.monto, c.estado, c.financiacion_id, c.fecha_de_vencimiento,
-                            com.id as comprador_id, com.nombre, com.email
-                     FROM cuotas c
-                     JOIN financiaciones f ON c.financiacion_id = f.id
-                     JOIN compradores com ON f.comprador_id = com.id
-                     WHERE MONTH(c.fecha_de_vencimiento) = ? AND YEAR(c.fecha_de_vencimiento) = ?", 
-                    [$mesActual, $anoActual]
-                )
+                'sql' => "SELECT c.id as cuota_id, c.monto, c.estado, c.financiacion_id, c.fecha_de_vencimiento, f.comprador_id, comp.nombre, comp.email 
+                         FROM cuotas c 
+                         JOIN financiaciones f ON c.financiacion_id = f.id 
+                         JOIN compradores comp ON f.comprador_id = comp.id 
+                         WHERE c.fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'",
+                'resultado' => DB::select("SELECT c.id as cuota_id, c.monto, c.estado, c.financiacion_id, c.fecha_de_vencimiento, f.comprador_id, comp.nombre, comp.email 
+                                        FROM cuotas c 
+                                        JOIN financiaciones f ON c.financiacion_id = f.id 
+                                        JOIN compradores comp ON f.comprador_id = comp.id 
+                                        WHERE c.fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'")
             ];
             
-            // Si hay cuotas, verificar los pagos
-            $cuotasEncontradas = $diagnostico['pasos'][0]['resultado'];
-            if (!empty($cuotasEncontradas)) {
-                $idsCuotas = array_column($cuotasEncontradas, 'id');
-                
-                if (count($idsCuotas) > 0) {
-                    $idsCuotasStr = implode(',', $idsCuotas);
-                    
-                    // PASO 3: Verificar pagos para estas cuotas
-                    $diagnostico['pasos'][] = [
-                        'paso' => '3. Pagos para las cuotas del mes',
-                        'consulta' => "SELECT * FROM pagos WHERE cuota_id IN ($idsCuotasStr)",
-                        'resultado' => $this->ejecutarConsulta(
-                            "SELECT * FROM pagos WHERE cuota_id IN (" . implode(',', array_fill(0, count($idsCuotas), '?')) . ")",
-                            $idsCuotas
-                        )
-                    ];
-                    
-                    // PASO 4: Calcular totales
-                    $totalCuotas = 0;
-                    foreach ($cuotasEncontradas as $cuota) {
-                        $totalCuotas += $cuota->monto;
-                    }
-                    
-                    $diagnostico['totales'] = [
-                        'total_cuotas' => $totalCuotas,
-                        'cantidad_cuotas' => count($cuotasEncontradas)
-                    ];
-                    
-                    $pagosEncontrados = $diagnostico['pasos'][2]['resultado'] ?? [];
-                    if (!empty($pagosEncontrados)) {
-                        $totalPagado = 0;
-                        foreach ($pagosEncontrados as $pago) {
-                            $totalPagado += $pago->monto_usd;
-                        }
-                        
-                        $diagnostico['totales']['total_pagado'] = $totalPagado;
-                        $diagnostico['totales']['saldo_pendiente'] = $totalCuotas - $totalPagado;
-                        $diagnostico['totales']['cantidad_pagos'] = count($pagosEncontrados);
-                    } else {
-                        $diagnostico['totales']['total_pagado'] = 0;
-                        $diagnostico['totales']['saldo_pendiente'] = $totalCuotas;
-                        $diagnostico['totales']['cantidad_pagos'] = 0;
-                    }
+            // Paso 3: Obtener pagos para las cuotas del mes
+            $diagnostico['pasos'][2] = [
+                'paso' => '3. Pagos para las cuotas del mes',
+                'sql' => "SELECT p.* FROM pagos p 
+                         JOIN cuotas c ON p.cuota_id = c.id 
+                         WHERE c.fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'",
+                'resultado' => DB::select("SELECT p.* FROM pagos p 
+                                         JOIN cuotas c ON p.cuota_id = c.id 
+                                         WHERE c.fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'")
+            ];
+            
+            // Calcular totales para el dashboard
+            // Total cuotas del mes
+            $totalCuotasMes = count($diagnostico['pasos'][0]['resultado']);
+            
+            // Total monto de cuotas
+            $totalMonto = 0;
+            foreach ($diagnostico['pasos'][0]['resultado'] as $cuota) {
+                $totalMonto += $cuota->monto;
+            }
+            
+            // Total cuotas pagadas
+            $cuotasPagadas = 0;
+            foreach ($diagnostico['pasos'][0]['resultado'] as $cuota) {
+                if ($cuota->estado == 'pagada') {
+                    $cuotasPagadas++;
                 }
             }
             
-            // Registrar en el log el diagnóstico final para depuración
-            Log::info("Diagnóstico final generado", [
-                'tiene_fecha' => isset($diagnostico['fecha_actual']),
-                'tiene_mes' => isset($diagnostico['mes_consultado']),
-                'tiene_año' => isset($diagnostico['ano_consultado']),
-                'pasos_count' => count($diagnostico['pasos']),
-                'tiene_totales' => isset($diagnostico['totales'])
-            ]);
+            // Calcular pagos totales sumando monto_usd de la tabla pagos
+            $pagosTotales = 0;
+            foreach ($diagnostico['pasos'][2]['resultado'] as $pago) {
+                if (property_exists($pago, 'monto_usd')) {
+                    $pagosTotales += $pago->monto_usd;
+                }
+            }
+            
+            // Calcular monto pendiente de pago
+            $montoPendiente = $totalMonto - $pagosTotales;
+            
+            $diagnostico['totales'] = [
+                'cuotas_mes' => $totalCuotasMes,
+                'monto_total' => $totalMonto,
+                'cuotas_pagadas' => $cuotasPagadas,
+                'pagos_recibidos' => $pagosTotales,
+                'monto_pendiente' => $montoPendiente
+            ];
+            
+            // Obtener solo una lista simple de deudores con el campo judicializado
+            $diagnostico['deudores'] = DB::select("SELECT DISTINCT comp.id, comp.nombre, comp.email, comp.telefono, COALESCE(comp.judicializado, 0) as judicializado
+                                             FROM cuotas c 
+                                             JOIN financiaciones f ON c.financiacion_id = f.id 
+                                             JOIN compradores comp ON f.comprador_id = comp.id 
+                                             WHERE c.estado IN ('pendiente', 'parcial') 
+                                             AND c.fecha_de_vencimiento BETWEEN '$primerDiaMes' AND '$ultimoDiaMes'");
             
             // IMPORTANTE: Usa esta forma directa para pasar la variable
             Log::info("Antes de renderizar vista, pasando diagnóstico");

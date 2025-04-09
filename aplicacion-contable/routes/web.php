@@ -8,9 +8,7 @@ use App\Http\Controllers\AcreedorController;
 use App\Http\Controllers\LoteController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\CsvImportController;
-use App\Http\Controllers\JudicializadosController;
 use App\Http\Controllers\DiagnosticoController;
-use App\Http\Controllers\VerificarDatosController;
 
 // Ruta para crear entradas
 Route::get('/create-entries', function () {
@@ -59,10 +57,5 @@ Route::get('/verificar-entrada/{id}', [EntryController::class, 'verificarEntrada
 
 Route::get('/informes', [App\Http\Controllers\InformeController::class, 'index'])->name('informes.index');
 
-Route::post('/compradores/{id}/judicial', [JudicializadosController::class, 'actualizarEstadoJudicial'])->name('compradores.judicial');
-
 // Ruta para diagnóstico
 Route::get('/diagnostico/cobranzas', [DiagnosticoController::class, 'cobranzas'])->name('diagnostico.cobranzas');
-
-// Ruta para verificar datos
-Route::get('/verificar-datos', [VerificarDatosController::class, 'index'])->name('verificar.datos');
