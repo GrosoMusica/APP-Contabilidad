@@ -58,18 +58,167 @@
                             $esElMesActual = ($diagnostico['mes_consultado'] == $mesActual && $diagnostico['ano_consultado'] == $anoActual);
                         @endphp
                         
-                        <div class="card mb-3 {{ $esElMesActual ? 'bg-warning' : '' }}">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <a href="{{ route('informes.index', ['mes' => $diagnostico['mes_consultado'] == 1 ? 12 : $diagnostico['mes_consultado'] - 1, 'ano' => $diagnostico['mes_consultado'] == 1 ? $diagnostico['ano_consultado'] - 1 : $diagnostico['ano_consultado']]) }}" class="btn btn-outline-primary">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </a>
-                                    <h4 class="mb-0 text-uppercase font-weight-bold">
-                                        <i class="fas fa-calendar-alt"></i> {{ Carbon\Carbon::createFromDate($diagnostico['ano_consultado'], $diagnostico['mes_consultado'], 1)->locale('es')->monthName }} {{ $diagnostico['ano_consultado'] }}
-                                    </h4>
-                                    <a href="{{ route('informes.index', ['mes' => $diagnostico['mes_consultado'] == 12 ? 1 : $diagnostico['mes_consultado'] + 1, 'ano' => $diagnostico['mes_consultado'] == 12 ? $diagnostico['ano_consultado'] + 1 : $diagnostico['ano_consultado']]) }}" class="btn btn-outline-primary">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </a>
+                        <!-- Fila con las 5 cajas de información -->
+                        <div class="row mb-3">
+                            <!-- Caja 1: Balance -->
+                            <div class="col">
+                                <div class="card bg-info text-white h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-chart-line fa-2x mb-2"></i>
+                                        <h6 class="card-title">Balance</h6>
+                                        @php
+                                            // Calcular número de cuotas pagadas y total de cuotas del mes
+                                            $cuotasPagadas = 0;
+                                            $totalCuotasMes = 0;
+                                            
+                                            if(isset($diagnostico['pasos'][1]['resultado'])) {
+                                                foreach($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                                                    $fechaVencimiento = new DateTime($cuota->fecha_de_vencimiento);
+                                                    if($fechaVencimiento->format('m') == $diagnostico['mes_consultado'] && 
+                                                       $fechaVencimiento->format('Y') == $diagnostico['ano_consultado']) {
+                                                        $totalCuotasMes++;
+                                                        if($cuota->estado == 'pagada') {
+                                                            $cuotasPagadas++;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        <h4>{{ $cuotasPagadas }} / {{ $totalCuotasMes }}</h4>
+                                        <small>{{ $cuotasPagadas == $totalCuotasMes ? 'Todas al día' : 'Cuotas pagadas' }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Caja 2: Pagos Recibidos (verde) -->
+                            <div class="col">
+                                <div class="card bg-success text-white h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-dollar-sign fa-2x mb-2"></i>
+                                        <h6 class="card-title">Recibido</h6>
+                                        @php
+                                            $montoRecibido = 0;
+                                            $saldoExcedente = 0;
+                                            $pagosContados = 0;
+                                            
+                                            if(isset($diagnostico['pasos'][1]['resultado']) && isset($diagnostico['pasos'][2]['resultado'])) {
+                                                // Crear un mapa de cuotas por ID para búsqueda rápida
+                                                $cuotasPorId = [];
+                                                foreach($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                                                    $cuotasPorId[$cuota->cuota_id] = $cuota;
+                                                }
+                                                
+                                                // Procesar pagos
+                                                foreach($diagnostico['pasos'][2]['resultado'] as $pago) {
+                                                    // Verificar si es un pago que debe ignorarse
+                                                    if(property_exists($pago, 'es_pago_excedente') && $pago->es_pago_excedente == 1) {
+                                                        continue; // No considerar estos pagos
+                                                    }
+                                                    
+                                                    $pagosContados++;
+                                                    
+                                                    // Verificar si hay excedente
+                                                    if(isset($cuotasPorId[$pago->cuota_id])) {
+                                                        $cuota = $cuotasPorId[$pago->cuota_id];
+                                                        
+                                                        if($pago->monto_usd > $cuota->monto) {
+                                                            // Hay excedente
+                                                            $montoRecibido += $cuota->monto;
+                                                            $saldoExcedente += ($pago->monto_usd - $cuota->monto);
+                                                        } else {
+                                                            // No hay excedente
+                                                            $montoRecibido += $pago->monto_usd;
+                                                        }
+                                                    } else {
+                                                        // Si no encontramos la cuota, sumamos el monto completo
+                                                        $montoRecibido += $pago->monto_usd;
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        <h4>U$D {{ number_format($montoRecibido, 2) }}</h4>
+                                        @if($saldoExcedente > 0)
+                                            <div class="text-info fw-bold">* U$D {{ number_format($saldoExcedente, 2) }} (Saldo Excedente)</div>
+                                        @endif
+                                        <small>{{ $pagosContados }} pagos</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Caja 3: Pendientes (rojo) -->
+                            <div class="col">
+                                <div class="card bg-danger text-white h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                                        <h6 class="card-title">Pendientes</h6>
+                                        @php
+                                            // Mantener el cálculo de totalMes para que esté disponible para otras partes de la vista
+                                            $totalMes = 0;
+                                            
+                                            if(isset($diagnostico['pasos'][1]['resultado'])) {
+                                                foreach($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                                                    $fechaVencimiento = new DateTime($cuota->fecha_de_vencimiento);
+                                                    if($fechaVencimiento->format('m') == $diagnostico['mes_consultado'] && 
+                                                       $fechaVencimiento->format('Y') == $diagnostico['ano_consultado']) {
+                                                        $totalMes += $cuota->monto;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Usar directamente el valor calculado en el controlador
+                                            $montoPendiente = $diagnostico['totales']['deuda'];
+                                            
+                                            // Calcular cuantas cuotas están pendientes
+                                            $cuotasPendientes = 0;
+                                            if(isset($diagnostico['pasos'][1]['resultado'])) {
+                                                foreach($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                                                    $fechaVencimiento = new DateTime($cuota->fecha_de_vencimiento);
+                                                    if($fechaVencimiento->format('m') == $diagnostico['mes_consultado'] && 
+                                                       $fechaVencimiento->format('Y') == $diagnostico['ano_consultado']) {
+                                                        if($cuota->estado == 'pendiente' || $cuota->estado == 'parcial') {
+                                                            $cuotasPendientes++;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        <h4>U$D {{ number_format($montoPendiente, 2) }}</h4>
+                                        <small>{{ $cuotasPendientes }} pendientes</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Caja 4: Total Mes (azul) -->
+                            <div class="col">
+                                <div class="card bg-primary text-white h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                                        <h6 class="card-title">Total Mes</h6>
+                                        <h4>U$D {{ number_format($totalMes, 2) }}</h4>
+                                        <small>{{ $totalCuotasMes }} cuotas</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Caja 5: Navegador de mes -->
+                            <div class="col">
+                                <div class="card {{ $esElMesActual ? 'bg-warning' : 'bg-light' }} h-100">
+                                    <div class="card-body p-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <a href="{{ route('informes.index', ['mes' => $diagnostico['mes_consultado'] == 1 ? 12 : $diagnostico['mes_consultado'] - 1, 'ano' => $diagnostico['mes_consultado'] == 1 ? $diagnostico['ano_consultado'] - 1 : $diagnostico['ano_consultado']]) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </a>
+                                            <h6 class="mb-0 text-uppercase font-weight-bold">
+                                                {{ Carbon\Carbon::createFromDate($diagnostico['ano_consultado'], $diagnostico['mes_consultado'], 1)->locale('es')->monthName }}
+                                            </h6>
+                                            <a href="{{ route('informes.index', ['mes' => $diagnostico['mes_consultado'] == 12 ? 1 : $diagnostico['mes_consultado'] + 1, 'ano' => $diagnostico['mes_consultado'] == 12 ? $diagnostico['ano_consultado'] + 1 : $diagnostico['ano_consultado']]) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </a>
+                                        </div>
+                                        <div class="text-center mt-2">
+                                            <span class="badge bg-dark">{{ $diagnostico['ano_consultado'] }}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -151,7 +300,11 @@
                                                     <button class="btn btn-sm btn-primary" data-toggle="tooltip" title="Enviar mensaje">
                                                         <i class="fas fa-envelope"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-success" data-toggle="tooltip" title="Registrar pago">
+                                                    <button class="btn btn-sm btn-success btn-registrar-pago" 
+                                                            data-toggle="tooltip" 
+                                                            title="Registrar pago" 
+                                                            data-id="{{ $deudor->id }}" 
+                                                            data-cuota-id="{{ isset($cuota->cuota_id) ? $cuota->cuota_id : '' }}">
                                                         <i class="fas fa-money-bill-wave"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-danger judicializar-btn" data-id="{{ $deudor->id }}" data-estado="{{ $deudor->judicializado }}" data-toggle="tooltip" title="Judicializar">
@@ -174,7 +327,7 @@
             </div>
         </div>
     </div>
-
+                                                
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -202,6 +355,20 @@
             // Aquí se haría la llamada AJAX para actualizar el estado en la BD
             console.log(`Actualizando deudor ${deudorId} a judicializado=${nuevoEstado}`);
         });
+        
+        // Manejador para los botones de registrar pago
+        $('.btn-registrar-pago').click(function() {
+            const deudorId = $(this).data('id');
+            const cuotaId = $(this).data('cuota-id');
+            
+            // Aquí iría el código para mostrar un modal o formulario de pago
+            
+            // Después de procesar el pago exitosamente, recargar la página
+            // para actualizar tanto la lista de deudores como las cajas de resumen
+            $(document).on('pago:realizado', function() {
+                window.location.reload();
+            });
+        });
     });
     </script>
     <!-- Necesario para activar los tooltips -->
@@ -218,57 +385,181 @@
         <input type="hidden" name="judicializado" id="judicializado-value">
     </form>
 
-    <!-- JavaScript para la funcionalidad de judicializar -->
-    <script>
-    $(function () {
-        $('[data-toggle="tooltip"]').tooltip();
-        
-        // Manejador para los botones de judicializar
-        $('.judicializar-btn').click(function() {
-            const deudorId = $(this).data('id');
-            const estadoActual = $(this).data('estado');
-            const nuevoEstado = estadoActual == 1 ? 0 : 1;
-            const fila = $('#fila-deudor-' + deudorId);
-            
-            // Actualiza visualmente la fila
-            if (nuevoEstado === 1) {
-                fila.addClass('border border-danger');
-            } else {
-                fila.removeClass('border border-danger');
-            }
-            
-            // Actualiza el data-estado del botón
-            $(this).data('estado', nuevoEstado);
-            
-            // Aquí se haría la llamada AJAX para actualizar el estado en la BD
-            console.log(`Actualizando deudor ${deudorId} a judicializado=${nuevoEstado}`);
-            
-            // Ejemplo de implementación AJAX
-            /*
-            $.ajax({
-                url: '/api/compradores/' + deudorId + '/judicializar',
-                type: 'POST',
-                data: {
-                    '_token': $('meta[name="csrf-token"]').attr('content'),
-                    'judicializado': nuevoEstado
-                },
-                success: function(response) {
-                    console.log('Estado actualizado correctamente');
-                },
-                error: function(error) {
-                    // Revertir el cambio visual en caso de error
-                    if (nuevoEstado === 1) {
-                        fila.removeClass('border border-danger');
-                    } else {
-                        fila.addClass('border border-danger');
+    <!-- Sección de Detalles (agregar después de la tabla de deudores) -->
+    <div class="card mt-4 border-secondary">
+        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Mostrar/Ocultar Detalles</h5>
+            <button class="btn btn-sm btn-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDebug" aria-expanded="false">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+        <div class="collapse" id="collapseDebug">
+            <div class="card-body">
+                @php
+                    // Análisis de cuotas
+                    $cuotasAnalisis = [];
+                    $totalMonto = 0;
+                    $totalPagado = 0;
+                    $totalExcedente = 0;
+                    $totalPendiente = 0;
+                    $cuotasPagadas = 0;
+                    $cuotasPendientes = 0;
+                    $cuotasParciales = 0;
+                    
+                    if(isset($diagnostico['pasos'][1]['resultado'])) {
+                        foreach($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                            $fechaVencimiento = new DateTime($cuota->fecha_de_vencimiento);
+                            $enMesConsultado = ($fechaVencimiento->format('m') == $diagnostico['mes_consultado'] && 
+                                               $fechaVencimiento->format('Y') == $diagnostico['ano_consultado']);
+                            
+                            // Calcular pagos para esta cuota
+                            $pagadoEnCuota = 0;
+                            $excedenteEnCuota = 0;
+                            $pagosCuota = [];
+                            
+                            if(isset($diagnostico['pasos'][2]['resultado'])) {
+                                foreach($diagnostico['pasos'][2]['resultado'] as $pago) {
+                                    if($pago->cuota_id == $cuota->cuota_id) {
+                                        // Verificar si es un pago que debe ignorarse
+                                        if(property_exists($pago, 'es_pago_excedente') && $pago->es_pago_excedente == 1) {
+                                            continue; // No considerar estos pagos
+                                        }
+                                        
+                                        // Verificar si hay excedente
+                                        if($pago->monto_usd > $cuota->monto) {
+                                            $pagadoEnCuota += $cuota->monto;
+                                            $excedenteEnCuota += ($pago->monto_usd - $cuota->monto);
+                                            
+                                            $pagosCuota[] = [
+                                                'id' => $pago->id,
+                                                'monto' => $pago->monto_usd,
+                                                'excedente' => ($pago->monto_usd - $cuota->monto)
+                                            ];
+                                        } else {
+                                            $pagadoEnCuota += $pago->monto_usd;
+                                            
+                                            $pagosCuota[] = [
+                                                'id' => $pago->id,
+                                                'monto' => $pago->monto_usd,
+                                                'excedente' => 0
+                                            ];
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if($enMesConsultado) {
+                                $totalMonto += $cuota->monto;
+                                $totalPagado += min($pagadoEnCuota, $cuota->monto);
+                                $totalExcedente += $excedenteEnCuota;
+                                $totalPendiente += max(0, $cuota->monto - $pagadoEnCuota);
+                                
+                                if($cuota->estado == 'pagada') {
+                                    $cuotasPagadas++;
+                                } else if($cuota->estado == 'pendiente') {
+                                    $cuotasPendientes++;
+                                } else if($cuota->estado == 'parcial') {
+                                    $cuotasParciales++;
+                                }
+                            }
+                            
+                            $cuotasAnalisis[] = [
+                                'id' => $cuota->cuota_id,
+                                'monto' => $cuota->monto,
+                                'estado' => $cuota->estado,
+                                'comprador' => $cuota->nombre_comprador,
+                                'fecha_vencimiento' => $cuota->fecha_de_vencimiento,
+                                'en_mes_consultado' => $enMesConsultado,
+                                'pagado' => min($pagadoEnCuota, $cuota->monto),
+                                'excedente' => $excedenteEnCuota,
+                                'pendiente' => max(0, $cuota->monto - $pagadoEnCuota),
+                                'pagos' => $pagosCuota
+                            ];
+                        }
                     }
-                    $(this).data('estado', estadoActual); // Revertir el estado del botón
-                    console.error('Error al actualizar estado:', error);
-                }
-            });
-            */
-        });
-    });
-    </script>
+                @endphp
+                
+                <h6 class="mt-4">Detalle de Cuotas</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <!-- Columna ID ocultada -->
+                                <th>Comprador</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Vencimiento</th>
+                                <!-- Columna "En mes consultado" ocultada -->
+                                <th>Pagado</th>
+                                <th>Excedente</th>
+                                <th>Pendiente</th>
+                                <th>Detalle Pagos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($cuotasAnalisis as $c)
+                            <tr class="{{ $c['en_mes_consultado'] ? 'table-primary' : '' }}">
+                                <!-- Columna ID ocultada -->
+                                <td>{{ $c['comprador'] }}</td>
+                                <td>U$D {{ number_format($c['monto'], 2) }}</td>
+                                <td>
+                                    <span class="badge bg-{{ $c['estado'] == 'pagada' ? 'success' : ($c['estado'] == 'parcial' ? 'warning' : 'danger') }}">
+                                        {{ $c['estado'] }}
+                                    </span>
+                                </td>
+                                <td>{{ $c['fecha_vencimiento'] }}</td>
+                                <!-- Columna "En mes consultado" ocultada -->
+                                <td>U$D {{ number_format($c['pagado'], 2) }}</td>
+                                <td>
+                                    @if($c['excedente'] > 0)
+                                        <span class="text-primary">U$D {{ number_format($c['excedente'], 2) }}</span>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td>U$D {{ number_format($c['pendiente'], 2) }}</td>
+                                <td>
+                                    @if(count($c['pagos']) > 0)
+                                        <ul class="list-unstyled mb-0">
+                                        @foreach($c['pagos'] as $p)
+                                            <li>
+                                                ID: {{ $p['id'] }} - U$D {{ number_format($p['monto'], 2) }}
+                                                @if($p['excedente'] > 0)
+                                                    <span class="text-primary">(Excedente: U$D {{ number_format($p['excedente'], 2) }})</span>
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                        </ul>
+                                    @else
+                                        <span class="text-muted">Sin pagos</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="table-dark">
+                            <tr>
+                                <!-- Ajustado para las columnas ocultas -->
+                                <td><strong>TOTALES</strong></td>
+                                <td>U$D {{ number_format($totalMonto, 2) }}</td>
+                                <td>
+                                    <span class="badge bg-success">{{ $cuotasPagadas }} pagadas</span>
+                                    <span class="badge bg-warning">{{ $cuotasParciales }} parciales</span>
+                                    <span class="badge bg-danger">{{ $cuotasPendientes }} pendientes</span>
+                                </td>
+                                <td></td>
+                                <td>U$D {{ number_format($totalPagado, 2) }}</td>
+                                <td>
+                                    <span class="text-primary">U$D {{ number_format($totalExcedente, 2) }}</span>
+                                </td>
+                                <td>U$D {{ number_format($totalPendiente, 2) }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 
