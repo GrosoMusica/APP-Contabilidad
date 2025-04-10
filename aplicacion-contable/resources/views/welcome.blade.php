@@ -22,7 +22,7 @@
     <div class="container mt-5">
         <div class="row mb-4">
             <div class="col-12 text-center">
-                <h1>Bienvenido a la Aplicación Contable</h1>
+                <h1>Bienvenido</h1>
                 <p class="lead">Seleccione una opción para comenzar</p>
             </div>
         </div>

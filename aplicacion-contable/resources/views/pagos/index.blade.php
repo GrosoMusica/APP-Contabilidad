@@ -12,6 +12,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Estilos personalizados para pagos -->
     <link href="{{ asset('css/pagos.css') }}" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: rgba(33, 37, 41, 0.2); /* Color gris oscuro (bg-dark) con opacidad 0.2 */
+        }
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .filter-card {
+            border-left: 4px solid #212529;
+        }
+    </style>
 </head>
 <body>
     <!-- Navegación -->
@@ -33,17 +45,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         @endif
-
-        <div class="row mb-4">
-            <div class="col-md-8">
-                <h2 class="text-primary">Gestión de Pagos</h2>
-            </div>
-            <div class="col-md-4 text-end">
-                <a href="{{ route('compradores.index') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left me-1"></i> Volver a Compradores
-                </a>
-            </div>
-        </div>
 
         <!-- Filtros de Búsqueda -->
         <div class="card filter-card mb-4">

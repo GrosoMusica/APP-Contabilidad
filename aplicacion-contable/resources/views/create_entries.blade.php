@@ -19,7 +19,6 @@
     @include('partials.top_bar')
 
     <div class="container mt-5">
-        <h1 class="text-center">Crear Entradas</h1>
         
         <!-- Mostrar éxito y errores -->
         @if (session('success'))
@@ -127,7 +126,8 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="fecha_de_vencimiento" class="form-label">Fecha de Registro</label>
-                                    <input type="date" class="form-control" id="fecha_de_vencimiento" name="fecha_de_vencimiento" required>
+                                    <input type="date" class="form-control" id="fecha_de_vencimiento" name="fecha_de_vencimiento" 
+                                    value="{{ now()->format('Y-m-d') }}" required>
                                 </div>
                             </div>
                         </div>

@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
     <!-- Estilos globales de la aplicación -->
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <style>
@@ -37,11 +39,8 @@
             </div>
         </div> -->
 
-        <div class="card">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0 text-center text-uppercase"><i class="fas fa-chart-bar"></i> Informes del Sistema</h5>
-            </div>
-            <div class="card-body">
+        <div class="card informe-section">
+                      <div class="card-body">
                 @if(isset($error))
                     <div class="alert alert-danger">
                         {{ $error }}
@@ -223,153 +222,175 @@
                             </div>
                         </div>
 
-                        <!-- Lista de Deudores -->
-                        <h4 class="mt-4 mb-3">Lista de Deudores</h4>
-                        @if(isset($diagnostico['deudores']) && count($diagnostico['deudores']) > 0)
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-striped" id="tablaDeudores">
-                                    <thead class="thead-dark">
-                                        <tr>
-                                            <th>Nombre</th>
-                                            <th><i class="fas fa-envelope"></i> Email</th>
-                                            <th><i class="fas fa-phone"></i> Teléfono</th>
-                                            <th>Valor de Cuota</th>
-                                            <th>Deuda</th>
-                                            <th>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($diagnostico['deudores'] as $deudor)
-                                        <tr id="fila-deudor-{{ $deudor->id }}" class="{{ $deudor->judicializado == 1 ? 'border border-danger' : '' }}">
-                                            <td>{{ $deudor->nombre }}</td>
-                                            <td>{{ $deudor->email }}</td>
-                                            <td>{{ $deudor->telefono }}</td>
-                                            <td class="text-muted">
-                                                @php
-                                                    $valorCuota = 0;
-                                                    if(isset($diagnostico['pasos'][1]['resultado'])) {
-                                                        foreach ($diagnostico['pasos'][1]['resultado'] as $cuota) {
-                                                            if ($cuota->comprador_id == $deudor->id) {
-                                                                $valorCuota = $cuota->monto;
-                                                                break;
-                                                            }
-                                                        }
-                                                    }
-                                                @endphp
-                                                ${{ number_format($valorCuota, 2) }}
-                                            </td>
-                                            <td class="text-danger font-weight-bold">
-                                                @php
-                                                    $deuda = 0;
-                                                    if(isset($diagnostico['pasos'][1]['resultado'])) {
-                                                        foreach ($diagnostico['pasos'][1]['resultado'] as $cuota) {
-                                                            if ($cuota->comprador_id == $deudor->id) {
-                                                                if ($cuota->estado == 'pendiente') {
-                                                                    // Si está pendiente, la deuda es el monto completo
-                                                                    $deuda = $cuota->monto;
-                                                                } elseif ($cuota->estado == 'parcial') {
-                                                                    // Si es parcial, calculamos monto - pagos_realizados
-                                                                    $montoOriginal = $cuota->monto;
-                                                                    $pagosRealizados = 0;
-                                                                    
-                                                                    // Buscar los pagos relacionados con esta cuota
-                                                                    if(isset($diagnostico['pasos'][2]['resultado'])) {
-                                                                        foreach ($diagnostico['pasos'][2]['resultado'] as $pago) {
-                                                                            if (property_exists($pago, 'cuota_id') && $pago->cuota_id == $cuota->cuota_id && 
-                                                                                property_exists($pago, 'monto_usd')) {
-                                                                                $pagosRealizados += $pago->monto_usd;
-                                                                            }
-                                                                        }
+                        <!-- Lista de Deudores con el estilo solicitado -->
+                        <div class="card mt-4">
+                            <div class="card-header bg-secondary text-white">
+                                <h5 class="mb-0 text-center text-uppercase"><i class="fas fa-list"></i> Lista de Deudores</h5>
+                            </div>
+                            <div class="card-body">
+                                @if(isset($diagnostico['deudores']) && count($diagnostico['deudores']) > 0)
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-striped" id="tablaDeudores">
+                                            <thead class="thead-dark">
+                                                <tr>
+                                                    <th>Nombre</th>
+                                                    <th><i class="fas fa-envelope"></i> Email</th>
+                                                    <th><i class="fas fa-phone"></i> Teléfono</th>
+                                                    <th>Valor de Cuota (U$D)</th>
+                                                    <th>Deuda (U$D)</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($diagnostico['deudores'] as $deudor)
+                                                <tr id="fila-deudor-{{ $deudor->id }}" class="{{ $deudor->judicializado == 1 ? 'border border-danger' : '' }}">
+                                                    <td>{{ $deudor->nombre }}</td>
+                                                    <td>{{ $deudor->email }}</td>
+                                                    <td>{{ $deudor->telefono }}</td>
+                                                    <td data-sort="{{ $valorCuota ?? 0 }}">
+                                                        @php
+                                                            $valorCuota = 0;
+                                                            if(isset($diagnostico['pasos'][1]['resultado'])) {
+                                                                foreach ($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                                                                    if ($cuota->comprador_id == $deudor->id) {
+                                                                        $valorCuota = $cuota->monto;
+                                                                        break;
                                                                     }
-                                                                    
-                                                                    // La deuda es la diferencia
-                                                                    $deuda = $montoOriginal - $pagosRealizados;
                                                                 }
-                                                                break; // Una vez encontrada la cuota, salimos del bucle
                                                             }
-                                                        }
-                                                    }
-                                                @endphp
-                                                -${{ number_format($deuda, 2) }}
-                                            </td>
-                                            <td>
-                                                <div class="btn-group">
-                                                    <a href="{{ route('comprador.show', $deudor->id) }}" class="btn btn-sm bg-warning text-dark" data-toggle="tooltip" title="Ver detalles">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <button class="btn btn-sm btn-primary" data-toggle="tooltip" title="Enviar mensaje">
-                                                        <i class="fas fa-envelope"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-success btn-registrar-pago" 
-                                                            data-toggle="tooltip" 
-                                                            title="Registrar pago" 
-                                                            data-id="{{ $deudor->id }}" 
-                                                            data-cuota-id="{{ isset($cuota->cuota_id) ? $cuota->cuota_id : '' }}">
-                                                        <i class="fas fa-money-bill-wave"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-danger judicializar-btn" data-id="{{ $deudor->id }}" data-estado="{{ $deudor->judicializado }}" data-toggle="tooltip" title="Judicializar">
-                                                        <i class="fas fa-gavel"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                                        @endphp
+                                                        {{ number_format($valorCuota, 2) }}
+                                                    </td>
+                                                    <td data-sort="{{ $deuda ?? 0 }}">
+                                                        @php
+                                                            $deuda = 0;
+                                                            if(isset($diagnostico['pasos'][1]['resultado'])) {
+                                                                foreach ($diagnostico['pasos'][1]['resultado'] as $cuota) {
+                                                                    if ($cuota->comprador_id == $deudor->id) {
+                                                                        if ($cuota->estado == 'pendiente') {
+                                                                            $deuda = $cuota->monto;
+                                                                        } elseif ($cuota->estado == 'parcial') {
+                                                                            $montoOriginal = $cuota->monto;
+                                                                            $pagosRealizados = 0;
+                                                                            
+                                                                            if(isset($diagnostico['pasos'][2]['resultado'])) {
+                                                                                foreach ($diagnostico['pasos'][2]['resultado'] as $pago) {
+                                                                                    if (property_exists($pago, 'cuota_id') && $pago->cuota_id == $cuota->cuota_id && 
+                                                                                        property_exists($pago, 'monto_usd')) {
+                                                                                        $pagosRealizados += $pago->monto_usd;
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            
+                                                                    $deuda = $montoOriginal - $pagosRealizados;
+                                                                        }
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            }
+                                                        @endphp
+                                                        <span class="text-danger font-weight-bold">{{ number_format($deuda, 2) }}</span>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group">
+                                                            <a href="{{ route('comprador.show', $deudor->id) }}" class="btn btn-sm bg-warning text-dark" data-toggle="tooltip" title="Ver detalles">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
+                                                            <button class="btn btn-sm btn-primary" data-toggle="tooltip" title="Enviar mensaje">
+                                                                <i class="fas fa-envelope"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-success btn-registrar-pago" 
+                                                                    data-toggle="tooltip" 
+                                                                    title="Registrar pago" 
+                                                                    data-id="{{ $deudor->id }}" 
+                                                                    data-cuota-id="{{ isset($cuota->cuota_id) ? $cuota->cuota_id : '' }}">
+                                                                <i class="fas fa-money-bill-wave"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-danger judicializar-btn" data-id="{{ $deudor->id }}" data-estado="{{ $deudor->judicializado }}" data-toggle="tooltip" title="Judicializar">
+                                                                <i class="fas fa-gavel"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @else
+                                    <div class="alert alert-info">
+                                        No hay deudores para mostrar en este período.
+                                    </div>
+                                @endif
                             </div>
-                        @else
-                            <div class="alert alert-info">
-                                No hay deudores para mostrar en este período.
-                            </div>
-                        @endif
+                        </div>
                     @endif
                 @endif
             </div>
         </div>
     </div>
                                                 
+    <!-- jQuery (necesario para DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    
     <script>
-    $(document).ready(function() {
-        // Activar los tooltips
-        $('[data-toggle="tooltip"]').tooltip();
-        
-        // Manejador para los botones de judicializar
-        $('.judicializar-btn').click(function() {
-            const deudorId = $(this).data('id');
-            const estadoActual = $(this).data('estado');
-            const nuevoEstado = estadoActual == 1 ? 0 : 1;
-            const fila = $('#fila-deudor-' + deudorId);
+        $(document).ready(function() {
+            // Inicializar DataTables
+            $('#tablaDeudores').DataTable({
+                "order": [[4, 'desc']], // Ordenar por la columna de deuda de mayor a menor
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json"
+                },
+                "pageLength": 25,
+                "columnDefs": [
+                    { "orderable": true, "targets": [0, 1, 3, 4] },
+                    { "orderable": false, "targets": [2, 5] },
+                    { "type": "num", "targets": [3, 4] }
+                ]
+            });
             
-            // Actualiza visualmente la fila
-            if (nuevoEstado === 1) {
-                fila.addClass('border border-danger');
-            } else {
-                fila.removeClass('border border-danger');
-            }
+            // Activar los tooltips
+            $('[data-toggle="tooltip"]').tooltip();
             
-            // Actualiza el data-estado del botón
-            $(this).data('estado', nuevoEstado);
+            // Manejador para los botones de judicializar
+            $('.judicializar-btn').click(function() {
+                const deudorId = $(this).data('id');
+                const estadoActual = $(this).data('estado');
+                const nuevoEstado = estadoActual == 1 ? 0 : 1;
+                const fila = $('#fila-deudor-' + deudorId);
+                
+                // Actualiza visualmente la fila
+                if (nuevoEstado === 1) {
+                    fila.addClass('border border-danger');
+                } else {
+                    fila.removeClass('border border-danger');
+                }
+                
+                // Actualiza el data-estado del botón
+                $(this).data('estado', nuevoEstado);
+                
+                // Aquí se haría la llamada AJAX para actualizar el estado en la BD
+                console.log(`Actualizando deudor ${deudorId} a judicializado=${nuevoEstado}`);
+            });
             
-            // Aquí se haría la llamada AJAX para actualizar el estado en la BD
-            console.log(`Actualizando deudor ${deudorId} a judicializado=${nuevoEstado}`);
-        });
-        
-        // Manejador para los botones de registrar pago
-        $('.btn-registrar-pago').click(function() {
-            const deudorId = $(this).data('id');
-            const cuotaId = $(this).data('cuota-id');
-            
-            // Aquí iría el código para mostrar un modal o formulario de pago
-            
-            // Después de procesar el pago exitosamente, recargar la página
-            // para actualizar tanto la lista de deudores como las cajas de resumen
-            $(document).on('pago:realizado', function() {
-                window.location.reload();
+            // Manejador para los botones de registrar pago
+            $('.btn-registrar-pago').click(function() {
+                const deudorId = $(this).data('id');
+                const cuotaId = $(this).data('cuota-id');
+                
+                // Aquí iría el código para mostrar un modal o formulario de pago
+                
+                // Después de procesar el pago exitosamente, recargar la página
+                // para actualizar tanto la lista de deudores como las cajas de resumen
+                $(document).on('pago:realizado', function() {
+                    window.location.reload();
+                });
             });
         });
-    });
     </script>
     <!-- Necesario para activar los tooltips -->
     <script>

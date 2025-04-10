@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Listado de Compradores</title>
+    <title>Compradores</title>
     <!-- Fonts -->
     <link href="https://fonts.bunny.net/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
@@ -13,6 +13,7 @@
     <style>
         body {
             font-family: 'Nunito', sans-serif;
+            background-color: rgba(255, 193, 7, 0.2); /* Amarillo con opacidad 0.2 */
         }
         .estado-cuotas {
             padding: 5px;
@@ -40,12 +41,6 @@
     @include('partials.top_bar')
     
     <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <h1>Listado de Compradores</h1>
-            </div>
-        </div>
-        
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">Compradores Registrados</h5>

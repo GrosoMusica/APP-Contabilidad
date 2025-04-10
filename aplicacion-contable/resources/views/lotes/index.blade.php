@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Listado de Lotes</title>
+    <title>Lotes</title>
     <!-- Fonts -->
     <link href="https://fonts.bunny.net/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
@@ -13,7 +13,7 @@
     <style>
         body {
             font-family: 'Nunito', sans-serif;
-            background-color: #f0fff0;
+            background-color: rgba(25, 135, 84, 0.2); /* Verde con opacidad 0.2 */
         }
     </style>
 </head>
@@ -22,15 +22,9 @@
     @include('partials.top_bar')
 
     <div class="container mt-4">
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <h2 class="text-success">Listado de Lotes</h2>
-            </div>
-        </div>
-
         <div class="card">
             <div class="card-header bg-success text-white">
-                <h5 class="mb-0">Lotes Registrados</h5>
+                <h5 class="mb-0">Lotes Vendidos</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
