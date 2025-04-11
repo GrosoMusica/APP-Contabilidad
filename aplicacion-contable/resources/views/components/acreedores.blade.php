@@ -164,21 +164,27 @@
             <form action="{{ route('acreedores.store') }}" method="POST">
                 @csrf
                 <input type="hidden" name="financiacion_id" value="{{ $comprador->financiacion->id }}">
-                <input type="hidden" name="redirect_to" value="#seccion-acreedores">
+                <input type="hidden" name="redirect_to" value="acreedor-section">
                 <div class="modal-header">
                     <h5 class="modal-title" id="addAcreedorModalLabel">Agregar Acreedor</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="nombre" class="form-label">Nombre del Acreedor</label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        <label for="acreedor_id" class="form-label">Seleccionar Acreedor</label>
+                        <select class="form-select" name="nombre" id="acreedor_select" required>
+                            <option value="">Seleccione un acreedor</option>
+                            @foreach(App\Models\Acreedor::where('id', '!=', 1)->get() as $acreedor)
+                                <option value="{{ $acreedor->nombre }}">{{ $acreedor->nombre }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label for="porcentaje" class="form-label">Porcentaje</label>
-                        <input type="number" class="form-control" id="porcentaje" name="porcentaje" 
-                               max="{{ $adminPorcentaje }}" min="1" required>
-                        <small class="text-muted">Máximo disponible: {{ $adminPorcentaje }}%</small>
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="porcentaje" min="1" max="100" required>
+                            <span class="input-group-text">%</span>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -199,4 +205,43 @@
             document.getElementById('seccion-acreedores').scrollIntoView();
         }
     });
-</script> 
+</script>
+
+<!-- Mensajes de éxito y error -->
+@if(session('success') && session('redirect_to') == 'acreedor-section')
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="fas fa-check-circle me-2"></i> {{ session('success') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+@endif
+
+@if(session('error') && session('redirect_to') == 'acreedor-section')
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-circle me-2"></i> {{ session('error') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+@endif
+
+<!-- Script para hacer scroll hasta la sección de acreedores -->
+@if(session('redirect_to') == 'acreedor-section')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const acreedorSection = document.getElementById('acreedor-section');
+        if (acreedorSection) {
+            // Hacer scroll con un pequeño retraso para asegurar que todo está cargado
+            setTimeout(function() {
+                acreedorSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+            
+            // Auto cerrar las alertas después de 5 segundos
+            setTimeout(function() {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    const closeBtn = new bootstrap.Alert(alert);
+                    closeBtn.close();
+                });
+            }, 5000);
+        }
+    });
+</script>
+@endif 

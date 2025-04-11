@@ -238,6 +238,7 @@
                                                     <th><i class="fas fa-phone"></i> Teléfono</th>
                                                     <th>Valor de Cuota (U$D)</th>
                                                     <th>Deuda (U$D)</th>
+                                                    <th>Acreedor</th>
                                                     <th>Acciones</th>
                                                 </tr>
                                             </thead>
@@ -291,6 +292,7 @@
                                                         @endphp
                                                         <span class="text-danger font-weight-bold">{{ number_format($deuda, 2) }}</span>
                                                     </td>
+                                                    <td>{{ $deudor->acreedor_id ?? 'N/A' }}</td>
                                                     <td>
                                                         <div class="btn-group">
                                                             <a href="{{ route('comprador.show', $deudor->id) }}" class="btn btn-sm bg-warning text-dark" data-toggle="tooltip" title="Ver detalles">
@@ -347,8 +349,8 @@
                 },
                 "pageLength": 25,
                 "columnDefs": [
-                    { "orderable": true, "targets": [0, 1, 3, 4] },
-                    { "orderable": false, "targets": [2, 5] },
+                    { "orderable": true, "targets": [0, 1, 3, 4, 5] },
+                    { "orderable": false, "targets": [2, 6] },
                     { "type": "num", "targets": [3, 4] }
                 ]
             });

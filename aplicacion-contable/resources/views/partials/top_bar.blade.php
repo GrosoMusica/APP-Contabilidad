@@ -21,7 +21,7 @@
                     <a class="nav-link {{ request()->routeIs('informes.*') ? 'active' : '' }}" href="{{ route('informes.index') }}">INFORMES</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('acreedores.*') ? 'active' : '' }}" href="#">ACREEDORES</a>
+                    <a class="nav-link {{ request()->routeIs('gestion.acreedores.*') ? 'active' : '' }}" href="{{ route('gestion.acreedores.index') }}">ACREEDORES</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link btn btn-danger text-white px-3 mx-2 {{ request()->routeIs('entries.create') ? 'active' : '' }}" href="{{ route('entries.create') }}">CREAR OPERACIÓN</a>

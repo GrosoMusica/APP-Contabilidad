@@ -59,35 +59,112 @@
             0% { background-color: rgba(255, 255, 0, 0.5); }
             100% { background-color: transparent; }
         }
+        /* Estilos adicionales para indicadores de pago */
+        .payment-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .status-paid {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-partial {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .status-pending {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .field-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+        .field-value {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        .icon-field {
+            color: #007bff;
+            width: 25px;
+            text-align: center;
+            margin-right: 5px;
+        }
     </style>
 </head>
 <body>
     @include('partials.top_bar')
     <div class="container mt-5">
         <div class="row">
-            <!-- Datos del Comprador -->
+            <!-- Datos del Comprador con solo iconos -->
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
                         Datos del Comprador
                     </div>
                     <div class="card-body">
+                        <style>
+                            .field-value {
+                                font-size: 1.1rem;
+                                font-weight: 500;
+                                margin-bottom: 1rem;
+                            }
+                            .icon-field {
+                                color: #007bff;
+                                width: 25px;
+                                text-align: center;
+                                margin-right: 5px;
+                            }
+                        </style>
                         <div class="row">
                             <div class="col-md-6">
-                                <p><strong>Nombre:</strong> {{ $comprador->nombre }}</p>
-                                <p><strong>Dirección:</strong> {{ $comprador->direccion }}</p>
-                                <p><strong>DNI:</strong> {{ $comprador->dni }}</p>
+                                <div class="mb-3">
+                                    <div class="field-value">
+                                        <i class="fas fa-user icon-field"></i>
+                                        {{ $comprador->nombre }}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="field-value">
+                                        <i class="fas fa-map-marker-alt icon-field"></i>
+                                        {{ $comprador->direccion }}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="field-value">
+                                        <i class="fas fa-id-card icon-field"></i>
+                                        {{ $comprador->dni }}
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <p><strong>Teléfono:</strong> {{ $comprador->telefono }}</p>
-                                <p><strong>Email:</strong> {{ $comprador->email }}</p>
+                                <div class="mb-3">
+                                    <div class="field-value">
+                                        <i class="fas fa-phone icon-field"></i>
+                                        {{ $comprador->telefono }}
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="field-value">
+                                        <i class="fas fa-envelope icon-field"></i>
+                                        {{ $comprador->email }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Balance -->
+            <!-- Balance con lógica corregida para excluir pagos excedentes -->
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
@@ -95,20 +172,61 @@
                     </div>
                     <div class="card-body">
                         @php
-                            // Calcular el monto real abonado sumando todos los pagos
-                            $pagosRealizados = \App\Models\Pago::whereHas('cuota', function($query) use ($comprador) {
-                                $query->whereHas('financiacion', function($q) use ($comprador) {
-                                    $q->where('comprador_id', $comprador->id);
-                                });
-                            })->sum('monto_usd');
+                            // 1. Buscar la financiación por comprador_id
+                            $financiacion = \App\Models\Financiacion::where('comprador_id', $comprador->id)->first();
+                            $montoTotalFinanciacion = $financiacion ? $financiacion->monto_a_financiar : 0;
                             
-                            // Calcular el saldo real pendiente
-                            $saldoPendienteReal = $comprador->financiacion->monto_a_financiar - $pagosRealizados;
+                            // 2. Calcular el monto abonado siguiendo el flujo de datos exacto
+                            $pagosRealizados = 0;
+                            
+                            if ($financiacion) {
+                                // a. Obtener los IDs de todas las cuotas que pertenecen a esta financiación
+                                $cuotasIds = \App\Models\Cuota::where('financiacion_id', $financiacion->id)
+                                                             ->pluck('id')
+                                                             ->toArray();
+                                
+                                // b. Sumar todos los montos de pagos asociados a esas cuotas
+                                //    EXCLUYENDO aquellos marcados como pagos excedentes
+                                if (!empty($cuotasIds)) {
+                                    $pagosRealizados = \App\Models\Pago::whereIn('cuota_id', $cuotasIds)
+                                                                      ->where(function($query) {
+                                                                          $query->where('es_pago_excedente', '!=', 1)
+                                                                                ->orWhereNull('es_pago_excedente');
+                                                                      })
+                                                                      ->sum('monto_usd');
+                                }
+                            }
+                            
+                            // 3. Cálculo de información de cuotas para la barra de progreso
+                            $totalCuotas = $cuotas->count();
+                            $cuotasPagadas = $cuotas->where('estado', 'pagada')->count();
+                            $cuotasPendientes = $totalCuotas - $cuotasPagadas;
+                            $porcentajePagado = ($totalCuotas > 0) ? ($cuotasPagadas / $totalCuotas) * 100 : 0;
                         @endphp
                         
-                        <p><strong>Monto Total:</strong> U$D {{ number_format($comprador->financiacion->monto_a_financiar, 2) }}</p>
-                        <p><strong>Abonado Hasta la Fecha:</strong> U$D {{ number_format($pagosRealizados, 2) }}</p>
-                        <p><strong>Saldo Pendiente:</strong> U$D {{ number_format($saldoPendienteReal, 2) }}</p>
+                        <p class="mb-3"><strong>Abonado Hasta la Fecha:</strong> U$D {{ number_format($pagosRealizados, 2) }} / U$D {{ number_format($montoTotalFinanciacion, 2) }}</p>
+                        
+                        <hr>
+                        
+                        <div class="mt-3">
+                            <p class="mb-1"><strong>Resumen de Cuotas</strong></p>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span>Total: {{ $totalCuotas }}</span>
+                                <span>Pagadas: {{ $cuotasPagadas }}</span>
+                                <span>Pendientes: {{ $cuotasPendientes }}</span>
+                            </div>
+                            
+                            <!-- Barra de progreso -->
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ $porcentajePagado }}%;" 
+                                     aria-valuenow="{{ $porcentajePagado }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ round($porcentajePagado) }}%
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -120,40 +238,66 @@
                         Información del Lote
                     </div>
                     <div class="card-body">
-                        <p><strong>Loteo:</strong> {{ $comprador->lote->loteo }}</p>
-                        <p><strong>Manzana:</strong> {{ $comprador->lote->manzana }}</p>
-                        <p><strong>Lote:</strong> {{ $comprador->lote->lote }}</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Manzana:</strong> {{ $comprador->lote->manzana }}</p>
+                                <p><strong>Lote:</strong> {{ $comprador->lote->lote }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Loteo:</strong> {{ $comprador->lote->loteo }}</p>
+                                <p><span style="font-size: 1.2rem; font-style: italic;">23 mt<sup>2</sup></span></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Cuota Actual y Botón para mostrar todas las cuotas -->
+            <!-- Cuota Actual con modificaciones -->
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header">
-                        @php
-                            // Fechas básicas para comparación
-                            $hoy = \Carbon\Carbon::now();
-                            $inicioMes = \Carbon\Carbon::now()->startOfMonth();
-                            $finMes = \Carbon\Carbon::now()->endOfMonth();
-                            
-                            // Encontrar la cuota actual pendiente más próxima
+                    @php
+                        // Fechas básicas para comparación
+                        $hoy = \Carbon\Carbon::now();
+                        $inicioMes = \Carbon\Carbon::now()->startOfMonth();
+                        $finMes = \Carbon\Carbon::now()->endOfMonth();
+                        
+                        // Encontrar la cuota actual pendiente más próxima
+                        $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
+                                            ->where('fecha_de_vencimiento', '>=', $hoy)
+                                            ->sortBy('fecha_de_vencimiento')
+                                            ->first();
+                        
+                        // Si no hay cuotas pendientes futuras, tomar la última pendiente
+                        if (!$cuotaActual) {
                             $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
-                                                ->where('fecha_de_vencimiento', '>=', $hoy)
-                                                ->sortBy('fecha_de_vencimiento')
+                                                ->sortByDesc('fecha_de_vencimiento')
                                                 ->first();
-                            
-                            // Si no hay cuotas pendientes futuras, tomar la última pendiente
-                            if (!$cuotaActual) {
-                                $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
-                                                    ->sortByDesc('fecha_de_vencimiento')
-                                                    ->first();
+                        }
+                        
+                        // Definir la clase de color según el estado
+                        $headerColorClass = 'bg-primary'; // Color predeterminado
+                        if ($cuotaActual) {
+                            if ($cuotaActual->estado === 'pendiente') {
+                                $headerColorClass = 'bg-danger';
+                            } elseif ($cuotaActual->estado === 'parcial') {
+                                $headerColorClass = 'bg-warning text-dark';
+                            } elseif ($cuotaActual->estado === 'pagada') {
+                                $headerColorClass = 'bg-success';
                             }
-                        @endphp
+                        } else {
+                            // Si todas las cuotas están pagadas
+                            $headerColorClass = 'bg-success';
+                        }
+                    @endphp
 
+                    <div class="card-header {{ $headerColorClass }}" id="cuotaActualHeader">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>Cuota Actual</span>
-                            <button id="mostrarCuotasBtn" class="btn btn-sm btn-primary">
+                            @if($cuotaActual)
+                                <span>Cuota Actual #{{ $cuotaActual->numero_de_cuota }}</span>
+                            @else
+                                <span>Estado de Cuotas</span>
+                            @endif
+                            <button id="mostrarCuotasBtn" class="btn btn-sm btn-light">
                                 <i class="fas fa-th me-1"></i> Mostrar vista de cuotas
                             </button>
                         </div>
@@ -162,19 +306,30 @@
                         @if($cuotaActual)
                             <div class="d-flex justify-content-between mb-3">
                                 <div>
-                                    <h5>Cuota #{{ $cuotaActual->numero_de_cuota }}</h5>
                                     <p class="mb-1">Monto: U$D {{ number_format($cuotaActual->monto, 2) }}</p>
                                     <p>Vencimiento: {{ $cuotaActual->fecha_de_vencimiento->format('d-m-Y') }}</p>
                                     
-                                    @if($cuotaActual->estado === 'parcial')
+                                    @if($cuotaActual->estado === 'pagada')
+                                        <div class="payment-status status-paid">
+                                            <i class="fas fa-check-circle me-1"></i> PAGADA
+                                        </div>
+                                    @elseif($cuotaActual->estado === 'parcial')
                                         @php
                                             $totalPagado = $cuotaActual->pagos->sum('monto_usd');
                                             $saldoPendiente = $cuotaActual->monto - $totalPagado;
+                                            $porcentajePagado = ($totalPagado / $cuotaActual->monto) * 100;
                                         @endphp
-                                        <p class="text-warning">
+                                        <div class="payment-status status-partial">
                                             <i class="fas fa-exclamation-circle me-1"></i>
-                                            Pagado parcialmente. Pendiente: U$D {{ number_format($saldoPendiente, 2) }}
+                                            PAGO PARCIAL ({{ number_format($porcentajePagado, 0) }}%)
+                                        </div>
+                                        <p class="text-warning mt-2">
+                                            Pendiente: U$D {{ number_format($saldoPendiente, 2) }}
                                         </p>
+                                    @else
+                                        <div class="payment-status status-pending">
+                                            <i class="fas fa-times-circle me-1"></i> PENDIENTE
+                                        </div>
                                     @endif
                                 </div>
                                 <div>
@@ -189,22 +344,6 @@
                                 <p>¡Todas las cuotas han sido pagadas!</p>
                             </div>
                         @endif
-                        
-                        <hr class="my-3">
-                        
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <p class="mb-1"><strong>Resumen de Cuotas</strong></p>
-                                <p class="small mb-0">Total Cuotas: {{ $cuotas->count() }}</p>
-                                <p class="small mb-0">Pagadas: {{ $cuotas->where('estado', 'pagada')->count() }}</p>
-                                <p class="small mb-0">Pendientes: {{ $cuotas->where('estado', '!=', 'pagada')->count() }}</p>
-                            </div>
-                            <div>
-                                <a href="{{ route('pagos.index', ['comprador_id' => $comprador->id]) }}" class="btn btn-outline-primary">
-                                    <i class="fas fa-list me-1"></i> Ver Detalle de Pagos
-                                </a>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

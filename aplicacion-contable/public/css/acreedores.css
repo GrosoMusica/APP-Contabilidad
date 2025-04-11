@@ -1,0 +1,75 @@
+/* Estilos existentes */
+.card {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+/* ... (otros estilos existentes) ... */
+
+/* Nuevos estilos para pestañas con bordes más definidos */
+.acreedor-tabs .nav-link {
+    position: relative;
+    color: #495057;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.2s ease-in-out;
+    border: 2px solid #dee2e6;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    margin-right: 4px;
+    background-color: #f8f9fa;
+}
+
+.acreedor-tabs .nav-link.active {
+    color: #212529;
+    background-color: #fff;
+    border-color: #9acd32 #9acd32 #fff;
+    border-top-width: 3px;
+    font-weight: 600;
+    z-index: 1;
+}
+
+.acreedor-tabs .nav-link:hover {
+    background-color: rgba(154, 205, 50, 0.1);
+}
+
+.acreedor-tabs .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: #fff;
+}
+
+.acreedor-tabs .nav-link .badge {
+    margin-left: 8px;
+    font-size: 0.75rem;
+    background-color: #28a745;
+}
+
+#tab-new {
+    color: #6c757d;
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+}
+
+#tab-new:hover {
+    color: #fff;
+    background-color: #9acd32;
+    border-color: #9acd32;
+}
+
+/* En pantallas pequeñas, hacer que las pestañas sean más compactas */
+@media (max-width: 768px) {
+    .acreedor-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .acreedor-tabs .nav-item {
+        flex: 0 0 auto;
+    }
+} 

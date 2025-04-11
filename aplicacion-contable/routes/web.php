@@ -9,6 +9,7 @@ use App\Http\Controllers\LoteController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\CsvImportController;
 use App\Http\Controllers\DiagnosticoController;
+use App\Http\Controllers\NewAcreedorController;
 
 // Ruta para crear entradas
 Route::get('/create-entries', function () {
@@ -59,3 +60,13 @@ Route::get('/informes', [App\Http\Controllers\InformeController::class, 'index']
 
 // Ruta para diagnóstico
 Route::get('/diagnostico/cobranzas', [DiagnosticoController::class, 'cobranzas'])->name('diagnostico.cobranzas');
+
+// Rutas para la nueva gestión de acreedores
+Route::get('/gestion-acreedores', [NewAcreedorController::class, 'index'])->name('gestion.acreedores.index');
+Route::post('/gestion-acreedores', [NewAcreedorController::class, 'store'])->name('gestion.acreedores.store');
+Route::get('/gestion-acreedores/{acreedor}', [NewAcreedorController::class, 'show'])->name('gestion.acreedores.show');
+Route::delete('/gestion-acreedores/{acreedor}', [NewAcreedorController::class, 'destroy'])->name('gestion.acreedores.destroy');
+
+// Ruta para obtener financiaciones de un acreedor
+Route::get('/gestion-acreedores/{acreedor}/financiaciones', [NewAcreedorController::class, 'getFinanciaciones'])
+    ->name('gestion.acreedores.financiaciones');

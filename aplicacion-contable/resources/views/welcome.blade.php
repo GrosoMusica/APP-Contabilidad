@@ -60,7 +60,7 @@
             
             <!-- Botón 4: Acreedores -->
             <div class="col-md-3">
-                <a href="#" class="text-decoration-none">
+                <a href="{{ route('gestion.acreedores.index') }}" class="text-decoration-none">
                     <div class="menu-button bg-warning text-dark">
                         <i class="fas fa-handshake menu-icon"></i>
                         <span class="menu-title">ACREEDORES</span>
