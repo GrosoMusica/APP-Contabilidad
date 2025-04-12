@@ -13,110 +13,6 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <!-- Estilos específicos para acreedores -->
     <link rel="stylesheet" href="{{ asset('css/acreedores.css') }}">
-    <style>
-        .card {
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            background-color: #9acd32; /* Amarillo-verde claro */
-            color: white;
-            font-weight: bold;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-        }
-        .balance-card {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        .balance-card .card-body {
-            flex: 1;
-        }
-        .selected-row {
-            background-color: rgba(154, 205, 50, 0.15) !important; /* Amarillo-verde claro suave */
-        }
-        .acreedor-header {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #343a40;
-        }
-        .acreedor-saldo {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #28a745;
-            text-align: center;
-            margin: 15px 0;
-        }
-        .acreedor-mini-datos {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-        .financiacion-item {
-            padding: 10px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .financiacion-item:last-child {
-            border-bottom: none;
-        }
-        .porcentaje-badge {
-            background-color: #9acd32;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-        }
-        .badge-estado-pagado {
-            background-color: #28a745;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-        .badge-estado-parcial {
-            background-color: #ffc107;
-            color: #212529;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-        .badge-estado-pendiente {
-            background-color: #dc3545;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-        .badge-estado-na {
-            background-color: #6c757d;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-        }
-        .monto-pagado {
-            color: #28a745;
-            font-weight: 500;
-        }
-        .monto-parcial {
-            color: #fd7e14;
-            font-weight: 500;
-        }
-        .monto-pendiente {
-            color: #dc3545;
-            font-size: 0.85rem;
-        }
-        .monto-valor {
-            font-size: 0.9rem;
-            text-align: right;
-        }
-        .btn-top-right {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-        }
-    </style>
 </head>
 <body>
     <!-- Barra de navegación superior -->
@@ -159,15 +55,6 @@
                                             aria-selected="{{ $index == 0 ? 'true' : 'false' }}"
                                             data-id="{{ $acreedor->id }}">
                                         {{ $acreedor->nombre }}
-                                        <span class="badge rounded-pill bg-success ms-1">
-                                            @php
-                                                $totalPagado = 0;
-                                                foreach($acreedor->financiaciones as $financiacion) {
-                                                    $totalPagado += $financiacion->monto_pagado_acreedor ?? 0;
-                                                }
-                                            @endphp
-                                            U$D {{ number_format($totalPagado, 2) }}
-                                        </span>
                                     </button>
                                 </li>
                             @endforeach
@@ -185,7 +72,11 @@
                                     <div class="row mb-4">
                                         <div class="col-md-6">
                                             <h4>{{ $acreedor->nombre }}</h4>
-                                            <div class="text-muted">Creado: {{ \Carbon\Carbon::parse($acreedor->created_at)->format('d M, Y') }}</div>
+                                            <div class="acreedor-fecha-creacion">
+                                                <i class="fas fa-calendar-alt me-2"></i>
+                                                <span class="fecha-label">Creado:</span>
+                                                <span class="fecha-valor">{{ \Carbon\Carbon::parse($acreedor->created_at)->format('d M, Y') }}</span>
+                                            </div>
                                         </div>
                                         <div class="col-md-6 text-end">
                                             <div class="row">
@@ -195,40 +86,51 @@
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="text-muted mb-1">Pagado hasta la fecha</div>
-                                                    <h4 class="text-primary">U$D {{ number_format($totalPagado, 2) }}</h4>
+                                                    @php
+                                                        // Calcular el total pagado para este acreedor
+                                                        $totalPagadoAcreedor = 0;
+                                                        foreach($acreedor->financiaciones as $financiacion) {
+                                                            if($financiacion->estado != 'sin_cuota') {
+                                                                $totalPagadoAcreedor += $financiacion->monto_pagado_acreedor ?? 0;
+                                                            }
+                                                        }
+                                                    @endphp
+                                                    <h4 class="text-primary">U$D {{ number_format($totalPagadoAcreedor, 2) }}</h4>
                                                     <div class="d-flex justify-content-end mt-2">
                                                         <button class="btn btn-sm btn-outline-success me-2" title="Registrar pago">
                                                             <i class="fas fa-dollar-sign"></i> Abonar
                                                         </button>
-                                                        <button class="btn btn-sm btn-outline-primary" title="Generar PDF">
+                                                        <a href="{{ route('acreedores.export-distribucion', ['acreedor' => $acreedor->id]) }}" 
+                                                            class="btn btn-sm btn-outline-primary" 
+                                                            title="Generar PDF"
+                                                            target="_blank">
                                                             <i class="fas fa-file-pdf"></i> PDF
-                                                        </button>
+                                                        </a>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <!-- Distribución de Ingresos y Selector de Mes en la misma línea -->
-                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                                    <!-- Distribución de Ingresos con indicador de mes actual -->
+                                    <div class="border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
                                         <h5 class="mb-0 d-flex align-items-center">
                                             <i class="fas fa-chart-pie text-primary me-2"></i>
                                             Distribución de Ingresos
                                         </h5>
-                                        <div class="d-flex align-items-center">
-                                            <button class="btn btn-sm btn-outline-secondary me-2 btn-mes-anterior" data-acreedor="{{ $acreedor->id }}">
-                                                <i class="fas fa-chevron-left"></i>
-                                            </button>
-                                            
-                                            <h5 class="mb-0 d-flex align-items-center mx-2">
-                                                <i class="fas fa-calendar-alt text-primary me-2"></i>
-                                                <span id="mesActual-{{ $acreedor->id }}">{{ \Carbon\Carbon::now()->locale('es')->isoFormat('MMMM [de] YYYY') }}</span>
-                                            </h5>
-                                            
-                                            <button class="btn btn-sm btn-outline-secondary ms-2 btn-mes-siguiente" data-acreedor="{{ $acreedor->id }}">
-                                                <i class="fas fa-chevron-right"></i>
-                                            </button>
+                                        <div class="text-muted">
+                                            <i class="fas fa-calendar-alt me-1"></i> Mes Actual: {{ ucfirst(now()->locale('es')->isoFormat('MMMM YYYY')) }}
                                         </div>
+                                    </div>
+                                    
+                                    <!-- Botones para mostrar/ocultar pendientes y totales -->
+                                    <div class="mb-3 d-flex justify-content-end">
+                                        <button id="togglePendientes-{{ $acreedor->id }}" class="btn btn-sm btn-outline-danger me-2">
+                                            <i class="fas fa-eye me-1"></i> Mostrar Pendientes
+                                        </button>
+                                        <button id="toggleTotales-{{ $acreedor->id }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-list-alt me-1"></i> Ver Totales
+                                        </button>
                                     </div>
                                     
                                     <!-- Tabla de distribución de ingresos para este acreedor -->
@@ -244,119 +146,85 @@
                                                     @endphp
                                                     
                                                     @foreach($acreedor->financiaciones as $item)
-                                                        @php
-                                                            $montoTotalMes += $item->monto_porcentaje ?? 0;
-                                                            $montoPagadoTotal += $item->monto_pagado_acreedor ?? 0;
-                                                            $montoPendienteTotal += $item->monto_pendiente_acreedor ?? 0;
+                                                        @if($item->estado != 'sin_cuota')  {{-- Solo mostrar financiaciones con cuotas --}}
+                                                            @php
+                                                                // Calcular el monto que le corresponde al acreedor según su porcentaje
+                                                                $montoAcreedorCuota = $item->cuota->monto * ($item->porcentaje / 100);
+                                                                
+                                                                // Actualizar los totales según el estado
+                                                                if ($item->estado == 'pagado' || $item->estado == 'pagada') {
+                                                                    $montoPagadoTotal += $montoAcreedorCuota;
+                                                                    $montoTotalMes += $item->cuota->monto; // Total general incluye el monto completo
+                                                                } elseif ($item->estado == 'parcial') {
+                                                                    $montoPagadoTotal += $item->monto_pagado_acreedor;
+                                                                    $montoPendienteTotal += $item->monto_pendiente_acreedor;
+                                                                    $montoTotalMes += $item->cuota->monto;
+                                                                } else {
+                                                                    // Pendiente
+                                                                    $montoPendienteTotal += $montoAcreedorCuota;
+                                                                    $montoTotalMes += $item->cuota->monto;
+                                                                }
+                                                                
+                                                                // Verificar si hay cuotas pagadas
+                                                                if ($item->estado == 'pagado' || $item->estado == 'pagada') {
+                                                                    $estadoGeneral = 'pagado';
+                                                                } elseif ($item->estado == 'parcial' && $estadoGeneral != 'pagado') {
+                                                                    $estadoGeneral = 'parcial';
+                                                                }
+                                                            @endphp
                                                             
-                                                            // Verificar si hay cuotas pagadas
-                                                            if (isset($item->estado) && $item->estado == 'pagado') {
-                                                                $estadoGeneral = 'pagado';
-                                                            } elseif (isset($item->estado) && $item->estado == 'parcial' && $estadoGeneral != 'pagado') {
-                                                                $estadoGeneral = 'parcial';
-                                                            }
-                                                        @endphp
-                                                        
-                                                        <tr>
-                                                            <td style="width: 40%">
-                                                                <div>{{ $item->nombre_comprador }}</div>
-                                                                @if(isset($item->cuota))
-                                                                    <small class="text-muted">Cuota #{{ $item->cuota->numero ?? '-' }}</small>
-                                                                @endif
-                                                            </td>
-                                                            <td style="width: 15%" class="text-center">
-                                                                <span class="porcentaje-badge">{{ $item->porcentaje }}%</span>
-                                                            </td>
-                                                            <td style="width: 20%" class="text-center">
-                                                                @if(isset($item->estado))
-                                                                    <span class="badge-estado-{{ $item->estado == 'sin_cuota' ? 'pendiente' : $item->estado }}">
-                                                                        {{ $item->estado == 'sin_cuota' ? 'PENDIENTE' : strtoupper($item->estado) }}
+                                                            <tr class="table-row-fixed table-row-striped">
+                                                                <td style="width: 40%" class="align-middle">
+                                                                    <div>{{ $item->nombre_comprador }}</div>
+                                                                </td>
+                                                                <td style="width: 15%" class="text-center align-middle">
+                                                                    <span class="porcentaje-badge">{{ $item->porcentaje }}%</span>
+                                                                </td>
+                                                                <td style="width: 20%" class="text-center align-middle">
+                                                                    <span class="badge-estado-{{ $item->estado }}">
+                                                                        {{ strtoupper($item->estado) }}
                                                                     </span>
-                                                                @else
-                                                                    <span class="badge-estado-pendiente">PENDIENTE</span>
-                                                                @endif
-                                                            </td>
-                                                            <td style="width: 25%" class="monto-valor">
-                                                                @if(isset($item->estado))
-                                                                    @if($item->estado == 'pagado')
-                                                                        <span class="monto-pagado">U$D {{ number_format($item->monto_pagado_acreedor, 2) }}</span>
-                                                                    @elseif($item->estado == 'parcial')
-                                                                        <span class="monto-parcial">U$D {{ number_format($item->monto_pagado_acreedor, 2) }}</span>
-                                                                        <div class="monto-pendiente">Pend: U$D {{ number_format($item->monto_pendiente_acreedor, 2) }}</div>
-                                                                    @else
-                                                                        <span class="monto-pendiente">U$D 0.00</span>
-                                                                        <div class="text-muted small">Total: U$D {{ number_format($item->monto_porcentaje, 2) }}</div>
-                                                                    @endif
-                                                                @else
-                                                                    <span class="text-muted">-</span>
-                                                                @endif
-                                                            </td>
-                                                        </tr>
+                                                                </td>
+                                                                <td style="width: 25%" class="monto-valor align-middle">
+                                                                    <div class="monto-cell">
+                                                                        @if($item->estado == 'pagada' || $item->estado == 'pagado')
+                                                                            <span class="monto-pagado">U$D {{ number_format($item->cuota->monto * ($item->porcentaje / 100), 2) }}</span>
+                                                                            <span class="monto-total totales-text" style="display: none;">Total: U$D {{ number_format($item->cuota->monto, 2) }}</span>
+                                                                        @elseif($item->estado == 'parcial')
+                                                                            <span class="monto-parcial">U$D {{ number_format($item->monto_pagado_acreedor, 2) }}</span>
+                                                                            <span class="monto-pendiente pendientes-text" style="display: none;">Pend: U$D {{ number_format($item->monto_pendiente_acreedor, 2) }}</span>
+                                                                        @else
+                                                                            <span class="monto-pendiente">U$D 0.00</span>
+                                                                            <span class="monto-total totales-text" style="display: none;">Total: U$D {{ number_format($item->cuota->monto * ($item->porcentaje / 100), 2) }}</span>
+                                                                        @endif
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        @endif
                                                     @endforeach
                                                 </tbody>
                                                 <tfoot class="table-light">
                                                     <tr>
-                                                        <td colspan="2"><strong>Total Mes:</strong></td>
-                                                        <td class="text-center" id="estadoTotalMes-{{ $acreedor->id }}">
-                                                            <span class="badge-estado-{{ $estadoGeneral }}">
-                                                                {{ strtoupper($estadoGeneral) }}
-                                                            </span>
+                                                        <td colspan="2" class="align-middle"><strong class="fs-5">Total Mes:</strong></td>
+                                                        <td class="text-center align-middle" id="estadoTotalMes-{{ $acreedor->id }}">
+                                                            {{-- Etiqueta de estado eliminada --}}
                                                         </td>
-                                                        <td class="text-end" id="montoTotalMes-{{ $acreedor->id }}">
+                                                        <td class="text-end fs-5 fw-bold align-middle" id="montoTotalMes-{{ $acreedor->id }}">
                                                             @if($estadoGeneral == 'pagado')
-                                                                <span class="monto-pagado">U$D {{ number_format($montoTotalMes, 2) }}</span>
+                                                                <span class="monto-pagado">U$D {{ number_format($montoPagadoTotal, 2) }}</span>
+                                                                <div class="monto-total totales-text" style="display: none;">Total: U$D {{ number_format($montoTotalMes, 2) }}</div>
                                                             @elseif($estadoGeneral == 'parcial')
                                                                 <span class="monto-parcial">U$D {{ number_format($montoPagadoTotal, 2) }}</span>
-                                                                <div class="monto-pendiente">Pend: U$D {{ number_format($montoPendienteTotal, 2) }}</div>
+                                                                <div class="monto-pendiente pendientes-text" style="display: none;">Pend: U$D {{ number_format($montoPendienteTotal, 2) }}</div>
                                                             @else
                                                                 <span class="monto-pendiente">U$D 0.00</span>
-                                                                <div class="text-muted small">Total: U$D {{ number_format($montoTotalMes, 2) }}</div>
+                                                                <div class="monto-total totales-text" style="display: none;">Total: U$D {{ number_format($montoPendienteTotal, 2) }}</div>
                                                             @endif
                                                         </td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
                                         </div>
-                                    </div>
-                                    
-                                    <!-- Tarjetas de financiaciones -->
-                                    <div class="row">
-                                        @if(count($acreedor->financiaciones) > 0)
-                                            @foreach($acreedor->financiaciones as $item)
-                                                <div class="col-md-6 col-lg-4 mb-3">
-                                                    <div class="card h-100">
-                                                        <div class="card-body">
-                                                            <h6 class="d-flex justify-content-between">
-                                                                {{ $item->nombre_comprador }}
-                                                                <span class="porcentaje-badge">{{ $item->porcentaje }}%</span>
-                                                            </h6>
-                                                            <div class="mt-2">
-                                                                @if(isset($item->estado))
-                                                                    <div class="d-flex justify-content-between align-items-center">
-                                                                        <span>Estado:</span>
-                                                                        <span class="badge-estado-{{ isset($item->estado) ? ($item->estado == 'sin_cuota' ? 'pendiente' : $item->estado) : 'pendiente' }}">
-                                                                            {{ isset($item->estado) ? ($item->estado == 'sin_cuota' ? 'PENDIENTE' : strtoupper($item->estado)) : 'PENDIENTE' }}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div class="d-flex justify-content-between align-items-center mt-1">
-                                                                        <span>Saldo:</span>
-                                                                        <span class="monto-{{ $item->estado }}">
-                                                                            U$D {{ number_format($item->monto_pagado_acreedor ?? 0, 2) }}
-                                                                        </span>
-                                                                    </div>
-                                                                @else
-                                                                    <div class="text-muted text-center mt-2">Sin datos para el mes actual</div>
-                                                                @endif
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <div class="col-12">
-                                                <p class="text-muted">No hay financiaciones asignadas.</p>
-                                            </div>
-                                        @endif
                                     </div>
                                 </div>
                             @endforeach
@@ -394,13 +262,37 @@
                         Resumen
                     </div>
                     <div class="card-body">
-                        <h5 class="mb-3">Acreedores Activos</h5>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>Total:</span>
-                            <span class="fw-bold">{{ count($acreedores) }}</span>
+                        <!-- Selector de mes tipo navegación -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0">Seleccionar Mes</label>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2 border p-2 rounded month-selector">
+                                <a href="#" class="btn btn-sm btn-outline-secondary" id="prevMonth">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                                <span class="fw-bold" id="currentMonth">{{ now()->locale('es')->isoFormat('MMMM YYYY') }}</span>
+                                <a href="#" class="btn btn-sm btn-outline-secondary" id="nextMonth">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </div>
                         </div>
                         
-                        <hr>
+                        <!-- Admin (id=1) separado - Asegurando que no desaparezca -->
+                        @php
+                            $adminAcreedor = $acreedores->where('id', 1)->first();
+                            $otrosAcreedores = $acreedores->where('id', '!=', 1);
+                        @endphp
+                        
+                        @if($adminAcreedor)
+                        <div class="alert alert-info mb-4">
+                            <h6 class="mb-2"><i class="fas fa-user-shield me-1"></i> Administración</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>{{ $adminAcreedor->nombre }}</span>
+                                <span class="fw-bold">U$D {{ number_format($adminAcreedor->saldo, 2) }}</span>
+                            </div>
+                        </div>
+                        @endif
                         
                         <h5 class="mb-3">Saldos por Cobrar</h5>
                         <ul class="list-group">
@@ -408,7 +300,7 @@
                                 $totalSaldos = 0;
                             @endphp
                             
-                            @foreach($acreedores as $acreedor)
+                            @foreach($otrosAcreedores as $acreedor)
                                 @php
                                     $totalSaldos += $acreedor->saldo;
                                 @endphp
@@ -421,18 +313,25 @@
                         
                         <div class="alert alert-success mt-3">
                             <div class="d-flex justify-content-between align-items-center">
-                                <strong>Total:</strong>
+                                <strong>Total Liquidaciones:</strong>
                                 <strong>U$D {{ number_format($totalSaldos, 2) }}</strong>
                             </div>
                         </div>
                         
                         <div class="mt-4">
-                            <a href="{{ url('/acreedores/create') }}" class="btn btn-primary w-100">
+                            <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createAcreedorModal">
                                 <i class="fas fa-plus-circle me-1"></i> Agregar Acreedor
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Después de las cajas de Gestión de Acreedores y Resumen -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <x-saldo-acreedores :acreedores="$acreedores" />
             </div>
         </div>
     </div>
@@ -456,6 +355,31 @@
         </div>
     </div>
     
+    <!-- Modal para crear nuevo acreedor -->
+    <div class="modal fade" id="createAcreedorModal" tabindex="-1" aria-labelledby="createAcreedorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ route('gestion.acreedores.store') }}" method="POST">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="createAcreedorModalLabel">Crear Nuevo Acreedor</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="nombre" class="form-label">Nombre del Acreedor</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -464,42 +388,87 @@
     
     <script>
         $(document).ready(function() {
-            // Almacenar el mes actual para cada acreedor
-            const mesesActuales = {};
+            // Variables para el selector de mes
+            let currentDate = moment();
             
-            @foreach($acreedores as $acreedor)
-                mesesActuales[{{ $acreedor->id }}] = moment();
-            @endforeach
-            
-            // Función para actualizar el mes mostrado
-            function actualizarMesSeleccionado(acreedorId) {
-                const mesFormateado = mesesActuales[acreedorId].locale('es').format('MMMM [de] YYYY');
-                $(`#mesActual-${acreedorId}`).text(mesFormateado.charAt(0).toUpperCase() + mesFormateado.slice(1));
-                
-                // Aquí se cargarían los datos del mes seleccionado mediante AJAX
-                // Por ahora, solo mostraremos un mensaje indicando el cambio
-                console.log(`Cargando datos para el acreedor ${acreedorId} del mes: ${mesesActuales[acreedorId].format('YYYY-MM')}`);
+            // Actualizar el texto del mes seleccionado
+            function updateMonthDisplay() {
+                $('#currentMonth').text(currentDate.locale('es').format('MMMM YYYY'));
             }
             
-            // Botón mes anterior
-            $('.btn-mes-anterior').on('click', function() {
-                const acreedorId = $(this).data('acreedor');
-                mesesActuales[acreedorId] = mesesActuales[acreedorId].subtract(1, 'month');
-                actualizarMesSeleccionado(acreedorId);
+            // Navegación entre meses
+            $('#prevMonth').click(function(e) {
+                e.preventDefault();
+                currentDate.subtract(1, 'month');
+                updateMonthDisplay();
+                // Aquí irá la lógica para cargar datos del mes seleccionado
             });
             
-            // Botón mes siguiente
-            $('.btn-mes-siguiente').on('click', function() {
-                const acreedorId = $(this).data('acreedor');
-                mesesActuales[acreedorId] = mesesActuales[acreedorId].add(1, 'month');
-                actualizarMesSeleccionado(acreedorId);
+            $('#nextMonth').click(function(e) {
+                e.preventDefault();
+                currentDate.add(1, 'month');
+                updateMonthDisplay();
+                // Aquí irá la lógica para cargar datos del mes seleccionado
             });
-            
-            // Auto-cerrar las alertas después de 5 segundos
-            setTimeout(function() {
-                $('.alert').alert('close');
-            }, 5000);
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Botón para mostrar/ocultar pendientes
+            const togglePendientesBtn = document.getElementById('togglePendientes-{{ $acreedor->id }}');
+            const pendientesText = document.querySelectorAll('.pendientes-text');
+            
+            togglePendientesBtn.addEventListener('click', function() {
+                const isHidden = pendientesText[0]?.style.display === 'none';
+                
+                pendientesText.forEach(el => {
+                    el.style.display = isHidden ? 'block' : 'none';
+                });
+                
+                this.innerHTML = isHidden ? 
+                    '<i class="fas fa-eye-slash me-1"></i> Ocultar Pendientes' : 
+                    '<i class="fas fa-eye me-1"></i> Mostrar Pendientes';
+                    
+                this.classList.toggle('btn-outline-danger');
+                this.classList.toggle('btn-danger');
+            });
+            
+            // Botón para mostrar/ocultar totales
+            const toggleTotalesBtn = document.getElementById('toggleTotales-{{ $acreedor->id }}');
+            const totalesText = document.querySelectorAll('.totales-text');
+            
+            toggleTotalesBtn.addEventListener('click', function() {
+                const isHidden = totalesText[0]?.style.display === 'none';
+                
+                totalesText.forEach(el => {
+                    el.style.display = isHidden ? 'block' : 'none';
+                });
+                
+                this.innerHTML = isHidden ? 
+                    '<i class="fas fa-list-alt me-1"></i> Ocultar Totales' : 
+                    '<i class="fas fa-list-alt me-1"></i> Ver Totales';
+                    
+                this.classList.toggle('btn-outline-primary');
+                this.classList.toggle('btn-primary');
+            });
+        });
+
+        // Recargar la página si viene de una redirección con mensaje de éxito
+        if (document.querySelector('.alert-success')) {
+            // Verificar si no ha recargado recientemente
+            if (!localStorage.getItem('recentlyReloaded')) {
+                // Marcar como recargado recientemente
+                localStorage.setItem('recentlyReloaded', 'true');
+                // Recargar la página después de un breve retraso
+                setTimeout(function() {
+                    window.location.reload(true); // true para forzar recarga desde el servidor
+                }, 100);
+            } else {
+                // Limpiar el indicador después de unos segundos
+                setTimeout(function() {
+                    localStorage.removeItem('recentlyReloaded');
+                }, 5000);
+            }
+        }
     </script>
 </body>
 </html> 

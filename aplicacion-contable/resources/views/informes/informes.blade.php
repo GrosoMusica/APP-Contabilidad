@@ -238,7 +238,6 @@
                                                     <th><i class="fas fa-phone"></i> Teléfono</th>
                                                     <th>Valor de Cuota (U$D)</th>
                                                     <th>Deuda (U$D)</th>
-                                                    <th>Acreedor</th>
                                                     <th>Acciones</th>
                                                 </tr>
                                             </thead>
@@ -292,24 +291,20 @@
                                                         @endphp
                                                         <span class="text-danger font-weight-bold">{{ number_format($deuda, 2) }}</span>
                                                     </td>
-                                                    <td>{{ $deudor->acreedor_id ?? 'N/A' }}</td>
                                                     <td>
-                                                        <div class="btn-group">
-                                                            <a href="{{ route('comprador.show', $deudor->id) }}" class="btn btn-sm bg-warning text-dark" data-toggle="tooltip" title="Ver detalles">
-                                                                <i class="fas fa-eye"></i>
-                                                            </a>
-                                                            <button class="btn btn-sm btn-primary" data-toggle="tooltip" title="Enviar mensaje">
+                                                        <div class="d-flex gap-2">
+                                                            <button class="btn btn-sm btn-warning" data-toggle="tooltip" title="Enviar email">
                                                                 <i class="fas fa-envelope"></i>
                                                             </button>
+                                                            <a href="{{ route('comprador.show', $deudor->id) }}" class="btn btn-sm btn-primary" data-toggle="tooltip" title="Ver detalles">
+                                                                <i class="fas fa-eye"></i>
+                                                            </a>
                                                             <button class="btn btn-sm btn-success btn-registrar-pago" 
                                                                     data-toggle="tooltip" 
                                                                     title="Registrar pago" 
                                                                     data-id="{{ $deudor->id }}" 
                                                                     data-cuota-id="{{ isset($cuota->cuota_id) ? $cuota->cuota_id : '' }}">
                                                                 <i class="fas fa-money-bill-wave"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-danger judicializar-btn" data-id="{{ $deudor->id }}" data-estado="{{ $deudor->judicializado }}" data-toggle="tooltip" title="Judicializar">
-                                                                <i class="fas fa-gavel"></i>
                                                             </button>
                                                         </div>
                                                     </td>
@@ -349,35 +344,14 @@
                 },
                 "pageLength": 25,
                 "columnDefs": [
-                    { "orderable": true, "targets": [0, 1, 3, 4, 5] },
-                    { "orderable": false, "targets": [2, 6] },
+                    { "orderable": true, "targets": [0, 1, 3, 4] },
+                    { "orderable": false, "targets": [2, 5] },
                     { "type": "num", "targets": [3, 4] }
                 ]
             });
             
             // Activar los tooltips
             $('[data-toggle="tooltip"]').tooltip();
-            
-            // Manejador para los botones de judicializar
-            $('.judicializar-btn').click(function() {
-                const deudorId = $(this).data('id');
-                const estadoActual = $(this).data('estado');
-                const nuevoEstado = estadoActual == 1 ? 0 : 1;
-                const fila = $('#fila-deudor-' + deudorId);
-                
-                // Actualiza visualmente la fila
-                if (nuevoEstado === 1) {
-                    fila.addClass('border border-danger');
-                } else {
-                    fila.removeClass('border border-danger');
-                }
-                
-                // Actualiza el data-estado del botón
-                $(this).data('estado', nuevoEstado);
-                
-                // Aquí se haría la llamada AJAX para actualizar el estado en la BD
-                console.log(`Actualizando deudor ${deudorId} a judicializado=${nuevoEstado}`);
-            });
             
             // Manejador para los botones de registrar pago
             $('.btn-registrar-pago').click(function() {

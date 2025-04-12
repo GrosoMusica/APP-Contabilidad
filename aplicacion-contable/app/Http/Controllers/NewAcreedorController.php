@@ -13,11 +13,16 @@ class NewAcreedorController extends Controller
     /**
      * Mostrar listado de acreedores
      */
-    public function index()
+    public function index(Request $request)
     {
+        // Obtener datos frescos usando all() sin caché
         $acreedores = Acreedor::all();
         
-        // Para cada acreedor, precargamos sus financiaciones y el estado de las cuotas del mes actual
+        // Mes actual o seleccionado
+        $mesSeleccionado = $request->get('mes', now()->format('Y-m'));
+        $mesActual = now()->format('Y-m');
+        
+        // Para cada acreedor, precargamos sus financiaciones y el estado de las cuotas
         foreach ($acreedores as $acreedor) {
             // Obtener financiaciones del acreedor con los datos del comprador
             $financiaciones = DB::table('financiacion_acreedor as fa')
@@ -29,13 +34,10 @@ class NewAcreedorController extends Controller
             
             $acreedor->financiaciones = $financiaciones;
             
-            // Mes actual
-            $mesActual = now()->format('Y-m');
-            
-            // Para cada financiación, obtener la cuota del mes actual y sus pagos
+            // Para cada financiación, obtener la cuota del mes seleccionado y sus pagos
             foreach ($financiaciones as $financiacion) {
                 $cuota = Cuota::where('financiacion_id', $financiacion->financiacion_id)
-                    ->where('fecha_de_vencimiento', 'like', $mesActual . '%')
+                    ->where('fecha_de_vencimiento', 'like', $mesSeleccionado . '%')
                     ->first();
                     
                 $financiacion->cuota = $cuota;
@@ -49,7 +51,7 @@ class NewAcreedorController extends Controller
                     // Calcular monto pagado
                     $montoPagado = $pagos->sum('monto_usd');
                     
-                    // Determinar estado
+                    // IMPORTANTE: Determinar estado según la lógica original
                     if ($montoPagado >= $cuota->monto) {
                         $financiacion->estado = 'pagado';
                         $financiacion->monto_pagado = $montoPagado;
@@ -64,7 +66,7 @@ class NewAcreedorController extends Controller
                     // Calcular montos según porcentaje del acreedor
                     $financiacion->monto_total = $cuota->monto;
                     $financiacion->monto_porcentaje = ($cuota->monto * $financiacion->porcentaje) / 100;
-                    $financiacion->monto_pagado_acreedor = ($financiacion->monto_pagado * $financiacion->porcentaje) / 100;
+                    $financiacion->monto_pagado_acreedor = ($montoPagado * $financiacion->porcentaje) / 100;
                     $financiacion->monto_pendiente_acreedor = $financiacion->monto_porcentaje - $financiacion->monto_pagado_acreedor;
                 } else {
                     $financiacion->estado = 'sin_cuota';
@@ -77,7 +79,23 @@ class NewAcreedorController extends Controller
             }
         }
         
-        return view('acreedores.index', compact('acreedores'));
+        // Preparar meses para navegación
+        $fechaBase = \Carbon\Carbon::createFromFormat('Y-m', $mesSeleccionado);
+        $mesesNavegacion = [];
+        
+        for ($i = -6; $i <= 6; $i++) {
+            $fecha = $fechaBase->copy()->addMonths($i);
+            $mesesNavegacion[] = [
+                'valor' => $fecha->format('Y-m'),
+                'etiqueta' => ucfirst($fecha->locale('es')->isoFormat('MMMM [de] YYYY')),
+                'es_actual' => $fecha->format('Y-m') === $mesActual
+            ];
+        }
+        
+        return response()->view('acreedores.index', compact('acreedores', 'mesSeleccionado', 'mesActual', 'mesesNavegacion'))
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 
     /**

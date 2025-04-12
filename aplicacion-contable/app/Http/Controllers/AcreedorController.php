@@ -7,6 +7,9 @@ use App\Models\Comprador;
 use App\Models\Financiacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use App\Models\Cuota;
 
 class AcreedorController extends Controller
 {
@@ -50,104 +53,282 @@ class AcreedorController extends Controller
      */
     public function store(Request $request)
     {
-        // Validar los datos del formulario
-        $validated = $request->validate([
+        // Validación básica
+        $request->validate([
             'nombre' => 'required|string|max:255',
-            'porcentaje' => 'required|numeric|min:0.01|max:100',
-            'financiacion_id' => 'required|exists:financiaciones,id',
-            'redirect_to' => 'nullable|string',
+            'financiacion_id' => 'required',
+            'porcentaje' => 'required|numeric|min:1',
         ]);
 
-        // Obtener la financiación
-        $financiacion = Financiacion::findOrFail($request->financiacion_id);
-        
         try {
-            DB::beginTransaction();
+            // Obtener el acreedor por nombre
+            $acreedor = Acreedor::where('nombre', $request->nombre)->first();
             
-            // Buscar o crear el acreedor
-            $acreedor = Acreedor::firstOrCreate(['nombre' => $request->nombre]);
+            if ($acreedor) {
+                // Obtener el porcentaje actual del admin
+                $adminRelacion = DB::table('financiacion_acreedor')
+                    ->where('financiacion_id', $request->financiacion_id)
+                    ->where('acreedor_id', 1)
+                    ->first();
+                
+                // Crear la relación entre financiación y acreedor
+                DB::table('financiacion_acreedor')->insert([
+                    'financiacion_id' => $request->financiacion_id,
+                    'acreedor_id' => $acreedor->id,
+                    'porcentaje' => $request->porcentaje
+                ]);
+                
+                // Actualizar el porcentaje del admin
+                $nuevoPorcentajeAdmin = $adminRelacion->porcentaje - $request->porcentaje;
+                DB::table('financiacion_acreedor')
+                    ->where('financiacion_id', $request->financiacion_id)
+                    ->where('acreedor_id', 1)
+                    ->update([
+                        'porcentaje' => $nuevoPorcentajeAdmin
+                    ]);
+                
+                return redirect()->back()->with('success', 'Acreedor asignado correctamente');
+            } else {
+                return redirect()->back()->with('error', 'Acreedor no encontrado');
+            }
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Exportar datos de acreedores a PDF
+     *
+     * @param string|null $tipo Tipo de exportación: 'resumen', 'detallado', 'mensual'
+     * @return \Illuminate\Http\Response
+     */
+    public function exportPDF($tipo = 'resumen')
+    {
+        // Obtener acreedores con sus relaciones
+        $acreedores = Acreedor::with(['financiaciones', 'financiaciones.cuota'])->get();
+        
+        // Generar meses para la vista panorámica
+        $currentDate = Carbon::now();
+        $months = [];
+        for ($i = 0; $i < 6; $i++) {
+            $date = clone $currentDate;
+            $date->subMonths($i);
+            $months[] = $date;
+        }
+        // Revertir para mostrar de más antiguo a más reciente
+        $months = array_reverse($months);
+        
+        // Calcular datos reales (reemplaza la lógica de simulación)
+        $monthlyData = [];
+        $totalesData = [];
+        
+        foreach ($acreedores as $acreedor) {
+            // Inicializar datos para este acreedor
+            $monthlyData[$acreedor->id] = [];
+            $totalesPagados = 0;
+            $totalesPendientes = 0;
             
-            // Verificar si ya existe la relación
-            $relacion = DB::table('financiacion_acreedor')
-                ->where('financiacion_id', $financiacion->id)
-                ->where('acreedor_id', $acreedor->id)
+            // Calcular datos para cada mes
+            foreach ($months as $month) {
+                $monthStart = clone $month;
+                $monthStart->startOfMonth();
+                $monthEnd = clone $month;
+                $monthEnd->endOfMonth();
+                
+                // Buscar financiaciones de este mes
+                $pagosDelMes = 0;
+                $estadoDelMes = 'pendiente';
+                
+                foreach ($acreedor->financiaciones as $financiacion) {
+                    if (isset($financiacion->cuota) && 
+                        $financiacion->cuota->fecha_vencimiento >= $monthStart && 
+                        $financiacion->cuota->fecha_vencimiento <= $monthEnd) {
+                        
+                        $montoPorcentaje = $financiacion->cuota->monto * ($financiacion->porcentaje / 100);
+                        
+                        if ($financiacion->estado == 'pagada' || $financiacion->estado == 'pagado') {
+                            $pagosDelMes += $montoPorcentaje;
+                            $totalesPagados += $montoPorcentaje;
+                            $estadoDelMes = 'pagado';
+                        } elseif ($financiacion->estado == 'parcial') {
+                            $pagosDelMes += $financiacion->monto_pagado_acreedor;
+                            $totalesPagados += $financiacion->monto_pagado_acreedor;
+                            $totalesPendientes += $financiacion->monto_pendiente_acreedor;
+                            if ($estadoDelMes != 'pagado') {
+                                $estadoDelMes = 'parcial';
+                            }
+                        } else {
+                            $totalesPendientes += $montoPorcentaje;
+                        }
+                    }
+                }
+                
+                $monthlyData[$acreedor->id][$month->format('Y-m')] = [
+                    'monto' => $pagosDelMes,
+                    'estado' => $estadoDelMes
+                ];
+            }
+            
+            $totalesData[$acreedor->id] = [
+                'pagado' => $totalesPagados,
+                'pendiente' => $totalesPendientes,
+                'total' => $totalesPagados + $totalesPendientes,
+                'saldoAFavor' => false // Implementa tu lógica para saldo a favor
+            ];
+        }
+        
+        // Determinar qué vista usar según el tipo
+        $view = 'pdf.acreedores';
+        switch ($tipo) {
+            case 'detallado':
+                $view = 'pdf.acreedores-detallado';
+                break;
+            case 'mensual':
+                $view = 'pdf.acreedores-mensual';
+                break;
+        }
+        
+        // Generar PDF con la vista
+        $pdf = Pdf::loadView($view, [
+            'acreedores' => $acreedores,
+            'months' => $months,
+            'monthlyData' => $monthlyData,
+            'totalesData' => $totalesData,
+            'fechaGeneracion' => now()->format('d/m/Y H:i')
+        ]);
+        
+        // Opcional: personalizar el PDF
+        $pdf->setPaper('a4', 'landscape');
+        
+        // Descargar PDF
+        return $pdf->download('acreedores-' . $tipo . '-' . now()->format('dmY') . '.pdf');
+    }
+
+    /**
+     * Exportar la distribución de ingresos de un acreedor específico
+     *
+     * @param int $acreedorId ID del acreedor
+     * @param string|null $mes Mes en formato Y-m (opcional)
+     * @return \Illuminate\Http\Response
+     */
+    public function exportDistribucion($acreedorId, $mes = null)
+    {
+        // Si no se proporciona un mes, usar el mes actual
+        if (!$mes) {
+            $mes = now()->format('Y-m');
+        }
+        
+        // Crear objetos de fecha para mes actual, anterior y siguiente
+        $fechaActual = \Carbon\Carbon::createFromFormat('Y-m', $mes);
+        $mesAnterior = $fechaActual->copy()->subMonth()->format('Y-m');
+        $mesSiguiente = $fechaActual->copy()->addMonth()->format('Y-m');
+        
+        // Obtener el acreedor
+        $acreedor = Acreedor::findOrFail($acreedorId);
+        
+        // Obtener el mes seleccionado (ya no usamos now() sino el mes proporcionado)
+        $mesSeleccionado = $mes;
+        
+        // Preparar las financiaciones igual que en NewAcreedorController
+        // Obtener financiaciones del acreedor con los datos del comprador
+        $financiaciones = DB::table('financiacion_acreedor as fa')
+            ->join('financiaciones as f', 'fa.financiacion_id', '=', 'f.id')
+            ->join('compradores as c', 'f.comprador_id', '=', 'c.id')
+            ->where('fa.acreedor_id', $acreedor->id)
+            ->select('fa.financiacion_id', 'fa.porcentaje', 'c.nombre as nombre_comprador')
+            ->get();
+        
+        $acreedor->financiaciones = $financiaciones;
+        
+        // Para cada financiación, obtener la cuota del mes seleccionado (igual que en NewAcreedorController)
+        foreach ($financiaciones as $financiacion) {
+            $cuota = Cuota::where('financiacion_id', $financiacion->financiacion_id)
+                ->where('fecha_de_vencimiento', 'like', $mesSeleccionado . '%')
                 ->first();
                 
-            if ($relacion) {
-                DB::rollBack();
-                return redirect()->back()
-                    ->with('error', 'Este acreedor ya está asociado a esta financiación.')
-                    ->with('redirect_to', $request->redirect_to);
-            }
+            $financiacion->cuota = $cuota;
             
-            // Verificar si hay suficiente porcentaje disponible
-            $porcentajeAsignado = DB::table('financiacion_acreedor')
-                ->where('financiacion_id', $financiacion->id)
-                ->where('acreedor_id', '<>', 1) // Excluir al admin
-                ->sum('porcentaje');
+            if ($cuota) {
+                // Usar directamente el estado de la cuota
+                $financiacion->estado = $cuota->estado;
                 
-            $porcentajeDisponible = 100 - $porcentajeAsignado;
-            
-            if ($request->porcentaje > $porcentajeDisponible) {
-                DB::rollBack();
-                return redirect()->back()
-                    ->with('error', "Solo hay {$porcentajeDisponible}% disponible para asignar.")
-                    ->with('redirect_to', $request->redirect_to);
+                // Obtener pagos para calcular montos
+                $pagos = DB::table('pagos')
+                    ->where('cuota_id', $cuota->id)
+                    ->get();
+                
+                $montoPagado = $pagos->sum('monto_usd');
+                $financiacion->monto_pagado = $montoPagado;
+                
+                // Calcular montos según porcentaje del acreedor
+                $financiacion->monto_total = $cuota->monto;
+                $financiacion->monto_porcentaje = ($cuota->monto * $financiacion->porcentaje) / 100;
+                $financiacion->monto_pagado_acreedor = ($montoPagado * $financiacion->porcentaje) / 100;
+                $financiacion->monto_pendiente_acreedor = $financiacion->monto_porcentaje - $financiacion->monto_pagado_acreedor;
+            } else {
+                $financiacion->estado = 'sin_cuota';
+                $financiacion->monto_total = 0;
+                $financiacion->monto_porcentaje = 0;
+                $financiacion->monto_pagado = 0;
+                $financiacion->monto_pagado_acreedor = 0;
+                $financiacion->monto_pendiente_acreedor = 0;
             }
+        }
+        
+        // Filtrar solo financiaciones con cuotas
+        $financiacionesActivas = $financiaciones->filter(function($item) {
+            return $item->estado != 'sin_cuota';
+        })->values();
+        
+        // Calcular los totales para el mes
+        $montoTotalMes = 0;
+        $montoPagadoTotal = 0;
+        $montoPendienteTotal = 0;
+        
+        foreach ($financiacionesActivas as $item) {
+            if ($item->estado != 'sin_cuota') {
+                // Calcular montos según la lógica de la vista
+                if ($item->estado == 'pagada' || $item->estado == 'pagado') {
+                    $montoPagadoTotal += $item->monto_porcentaje;
+                    $montoTotalMes += $item->monto_total;
+                } elseif ($item->estado == 'parcial') {
+                    $montoPagadoTotal += $item->monto_pagado_acreedor;
+                    $montoPendienteTotal += $item->monto_pendiente_acreedor;
+                    $montoTotalMes += $item->monto_total;
+                } else {
+                    // Pendiente
+                    $montoPendienteTotal += $item->monto_porcentaje;
+                    $montoTotalMes += $item->monto_total;
+                }
+            }
+        }
+        
+        // Generar el PDF
+        try {
+            // Formatear el mes actual para mostrarlo en el PDF
+            $mesActualFormateado = $fechaActual->locale('es')->format('F Y');
             
-            // Asociar el acreedor a la financiación con el porcentaje (sin timestamps)
-            DB::table('financiacion_acreedor')->insert([
-                'financiacion_id' => $financiacion->id,
-                'acreedor_id' => $acreedor->id,
-                'porcentaje' => $request->porcentaje,
+            $pdf = PDF::loadView('pdf.distribucion-ingresos', [
+                'acreedor' => $acreedor,
+                'financiaciones' => $financiacionesActivas,
+                'montoTotalMes' => $montoPagadoTotal,
+                'montoPagadoTotal' => $montoPagadoTotal,
+                'montoPendienteTotal' => $montoPendienteTotal,
+                'fechaGeneracion' => now()->format('d/m/Y'),
+                'mesActual' => $mesActualFormateado,
+                'mesAnteriorUrl' => route('acreedores.export-distribucion', ['acreedor' => $acreedorId, 'mes' => $mesAnterior]),
+                'mesSiguienteUrl' => route('acreedores.export-distribucion', ['acreedor' => $acreedorId, 'mes' => $mesSiguiente])
             ]);
             
-            // Actualizar el porcentaje del admin
-            $adminRelacion = DB::table('financiacion_acreedor')
-                ->where('financiacion_id', $financiacion->id)
-                ->where('acreedor_id', 1) // Admin
-                ->first();
-                
-            if ($adminRelacion) {
-                // El nuevo porcentaje del admin es lo que queda de 100%
-                $nuevoPorcentajeAdmin = 100 - ($porcentajeAsignado + $request->porcentaje);
-                
-                // Actualizar o eliminar la relación del admin según corresponda
-                if ($nuevoPorcentajeAdmin > 0) {
-                    DB::table('financiacion_acreedor')
-                        ->where('financiacion_id', $financiacion->id)
-                        ->where('acreedor_id', 1)
-                        ->update([
-                            'porcentaje' => $nuevoPorcentajeAdmin,
-                        ]);
-                } else {
-                    // Si el admin ya no tiene porcentaje, eliminar su relación
-                    DB::table('financiacion_acreedor')
-                        ->where('financiacion_id', $financiacion->id)
-                        ->where('acreedor_id', 1)
-                        ->delete();
-                }
-            } else if ($porcentajeAsignado + $request->porcentaje < 100) {
-                // Si no existe relación con el admin y aún queda porcentaje, crearlo (sin timestamps)
-                $porcentajeAdmin = 100 - ($porcentajeAsignado + $request->porcentaje);
-                DB::table('financiacion_acreedor')->insert([
-                    'financiacion_id' => $financiacion->id,
-                    'acreedor_id' => 1, // Admin
-                    'porcentaje' => $porcentajeAdmin,
-                ]);
-            }
+            $pdf->setPaper('a4', 'portrait');
             
-            DB::commit();
+            // Formato del nombre: balance-año-mes-nombreacreedor.pdf
+            $nombreArchivo = 'balance-' . $mesSeleccionado . '-' . str_replace(' ', '_', $acreedor->nombre) . '.pdf';
             
-            return redirect()->back()
-                ->with('success', "Se ha asignado {$request->porcentaje}% a {$acreedor->nombre} correctamente.")
-                ->with('redirect_to', $request->redirect_to);
-                
+            return $pdf->download($nombreArchivo);
         } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->with('error', 'Error al procesar la solicitud: ' . $e->getMessage())
-                ->with('redirect_to', $request->redirect_to);
+            \Log::error('Error generando PDF: ' . $e->getMessage());
+            return back()->with('error', 'Error al generar el PDF: ' . $e->getMessage());
         }
     }
 } 

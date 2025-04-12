@@ -182,8 +182,11 @@
                     <div class="mb-3">
                         <label for="porcentaje" class="form-label">Porcentaje</label>
                         <div class="input-group">
-                            <input type="number" class="form-control" name="porcentaje" min="1" max="100" required>
+                            <input type="number" class="form-control" name="porcentaje" min="1" max="{{ $adminPorcentaje }}" required>
                             <span class="input-group-text">%</span>
+                        </div>
+                        <div class="form-text text-success mt-1">
+                            <i class="fas fa-info-circle me-1"></i> <strong>{{ $adminPorcentaje }}%</strong> disponible para asignar
                         </div>
                     </div>
                 </div>

@@ -70,3 +70,9 @@ Route::delete('/gestion-acreedores/{acreedor}', [NewAcreedorController::class, '
 // Ruta para obtener financiaciones de un acreedor
 Route::get('/gestion-acreedores/{acreedor}/financiaciones', [NewAcreedorController::class, 'getFinanciaciones'])
     ->name('gestion.acreedores.financiaciones');
+
+Route::get('acreedores/export-pdf/{tipo?}', 'AcreedorController@exportPDF')->name('acreedores.export-pdf');
+
+// Ruta para exportar distribución de ingresos (con parámetro opcional de mes)
+Route::get('/acreedores/{acreedor}/distribucion-ingresos/{mes?}', [AcreedorController::class, 'exportDistribucion'])
+    ->name('acreedores.export-distribucion');
