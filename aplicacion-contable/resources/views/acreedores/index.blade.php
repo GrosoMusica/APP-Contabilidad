@@ -13,6 +13,12 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <!-- Estilos específicos para acreedores -->
     <link rel="stylesheet" href="{{ asset('css/acreedores.css') }}">
+    <style>
+        .card-header {
+            background-color: #ffc107 !important; /* Color amarillo */
+            color: #212529;
+        }
+    </style>
 </head>
 <body>
     <!-- Barra de navegación superior -->

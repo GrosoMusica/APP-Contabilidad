@@ -17,11 +17,24 @@
                 <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('pagos.*') ? 'active' : '' }}" href="{{ route('pagos.index') }}">PAGOS</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('informes.*') ? 'active' : '' }}" href="{{ route('informes.index') }}">INFORMES</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {{ request()->routeIs('informes.*') || request()->routeIs('morosos') || request()->routeIs('proximos.finalizar') ? 'active' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        INFORMES
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ route('informes.index') }}">MES ACTUAL</a></li>
+                        <li><a class="dropdown-item" href="{{ route('morosos') }}">MOROSOS</a></li>
+                        <li><a class="dropdown-item" href="{{ route('proximos.finalizar') }}">PRÓXIMOS A FINALIZAR</a></li>
+                    </ul>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('gestion.acreedores.*') ? 'active' : '' }}" href="{{ route('gestion.acreedores.index') }}">ACREEDORES</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {{ request()->routeIs('gestion.acreedores.*') ? 'active' : '' }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        ACREEDORES
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ route('gestion.acreedores.index') }}">Listado</a></li>
+                        <li><a class="dropdown-item" href="{{ route('gestion.acreedores.pagos') }}">Balance de Pagos</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link btn btn-danger text-white px-3 mx-2 {{ request()->routeIs('entries.create') ? 'active' : '' }}" href="{{ route('entries.create') }}">CREAR OPERACIÓN</a>

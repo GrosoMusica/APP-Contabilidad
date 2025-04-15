@@ -21,7 +21,7 @@
             $adminPorcentaje = 100;
             
             // Si el admin ya está asociado a esta financiación, obtener su porcentaje actual
-            if ($admin) {
+            if ($admin && isset($comprador->financiacion)) {
                 foreach($admin->financiaciones as $fin) {
                     if($fin->id == $comprador->financiacion->id) {
                         $adminPorcentaje = $fin->pivot->porcentaje;
@@ -31,23 +31,22 @@
             }
             
             // Obtener solo las cuotas pagadas o con pago parcial de esta financiación
-            $cuotasPagadas = \App\Models\Cuota::where('financiacion_id', $comprador->financiacion->id)
-                ->whereIn('estado', ['pagada', 'parcial'])
-                ->get();
+            $cuotasPagadas = [];
+            $totalPagado = 0;
             
-            // Obtener todos los pagos de estas cuotas
-            $cuotasIds = $cuotasPagadas->pluck('id')->toArray();
-            $pagos = \App\Models\Pago::whereIn('cuota_id', $cuotasIds)->get();
-            
-            // Calcular el monto total efectivamente pagado (en USD)
-            $totalPagado = $pagos->sum('monto_usd');
-            
-            // Obtener todas las distribuciones de pagos
-            $pagosIds = $pagos->pluck('id')->toArray();
-            $distribuciones = DB::table('distribucion_pagos')
-                ->whereIn('pago_id', $pagosIds)
-                ->get();
+            if (isset($comprador->financiacion)) {
+                $cuotasPagadas = \App\Models\Cuota::where('financiacion_id', $comprador->financiacion->id)
+                    ->whereIn('estado', ['pagada', 'parcial'])
+                    ->get();
                 
+                // Obtener todos los pagos de estas cuotas
+                $cuotasIds = $cuotasPagadas->pluck('id')->toArray();
+                $pagos = \App\Models\Pago::whereIn('cuota_id', $cuotasIds)->get();
+                
+                // Calcular el monto total efectivamente pagado (en USD)
+                $totalPagado = $pagos->sum('monto_usd');
+            }
+            
             // Inicializar array para acumular por acreedor
             $acumulados = [];
             foreach($acreedores as $acreedor) {
@@ -56,36 +55,19 @@
                     'haber' => 0,    // Lo que realmente ha recibido
                     'saldo' => 0     // La diferencia (haber - debe)
                 ];
-            }
-            
-            // Calcular el "debe" para cada acreedor (basado en porcentaje del monto ya pagado)
-            foreach($acreedores as $acreedor) {
-                $porcentaje = 0;
-                foreach($acreedor->financiaciones as $fin) {
-                    if($fin->id == $comprador->financiacion->id) {
-                        $porcentaje = $fin->pivot->porcentaje;
-                        break;
+                
+                // Si tenemos financiación, calcular el "debe" para cada acreedor
+                if (isset($comprador->financiacion)) {
+                    $porcentaje = 0;
+                    foreach($acreedor->financiaciones as $fin) {
+                        if($fin->id == $comprador->financiacion->id) {
+                            $porcentaje = $fin->pivot->porcentaje;
+                            break;
+                        }
                     }
+                    // El "debe" es el porcentaje del total efectivamente pagado hasta ahora
+                    $acumulados[$acreedor->id]['debe'] = ($totalPagado * $porcentaje) / 100;
                 }
-                // El "debe" es el porcentaje del total efectivamente pagado hasta ahora
-                $acumulados[$acreedor->id]['debe'] = ($totalPagado * $porcentaje) / 100;
-            }
-            
-            // Calcular el "haber" para cada acreedor (basado en distribuciones reales)
-            foreach($distribuciones as $dist) {
-                if (isset($acumulados[$dist->acreedor_id])) {
-                    $acumulados[$dist->acreedor_id]['haber'] += $dist->monto_usd;
-                    
-                    // Incluir cualquier excedente en el haber
-                    if ($dist->excedente > 0) {
-                        $acumulados[$dist->acreedor_id]['haber'] += $dist->excedente;
-                    }
-                }
-            }
-            
-            // Calcular el "saldo" (haber - debe): positivo = a favor del acreedor
-            foreach($acumulados as $acreedorId => $valores) {
-                $acumulados[$acreedorId]['saldo'] = $valores['haber'] - $valores['debe'];
             }
         @endphp
         
@@ -104,28 +86,32 @@
                 </thead>
                 <tbody>
                     <!-- Admin siempre primero -->
+                    @if(isset($acumulados[1]))
                     <tr class="table-light">
-                        <td>{{ $comprador->financiacion->created_at->format('d/m/Y') }}</td>
+                        <td>{{ isset($comprador->financiacion) ? $comprador->financiacion->created_at->format('d/m/Y') : '-' }}</td>
                         <td><strong>{{ strtoupper('ADMIN') }}</strong></td>
                         <td><strong>{{ $adminPorcentaje }}%</strong></td>
                         <td class="text-end">U$D {{ number_format($acumulados[1]['debe'], 2) }}</td>
                         <td class="text-end">U$D {{ number_format($acumulados[1]['haber'], 2) }}</td>
                         <td class="text-end">
-                            <span class="{{ $acumulados[1]['saldo'] >= 0 ? 'text-success' : 'text-danger' }}">
-                                U$D {{ number_format(abs($acumulados[1]['saldo']), 2) }}
-                                <i class="fas fa-{{ $acumulados[1]['saldo'] >= 0 ? 'plus' : 'minus' }}-circle"></i>
+                            <span class="text-success">
+                                U$D {{ number_format($acumulados[1]['saldo'], 2) }}
+                                <i class="fas fa-plus-circle"></i>
                             </span>
                         </td>
                     </tr>
+                    @endif
                     
                     <!-- Otros acreedores -->
                     @foreach($acreedores->where('id', '!=', 1) as $acreedor)
                         @php
                             $porcentaje = 0;
-                            foreach($acreedor->financiaciones as $fin) {
-                                if($fin->id == $comprador->financiacion->id) {
-                                    $porcentaje = $fin->pivot->porcentaje;
-                                    break;
+                            if (isset($comprador->financiacion)) {
+                                foreach($acreedor->financiaciones as $fin) {
+                                    if($fin->id == $comprador->financiacion->id) {
+                                        $porcentaje = $fin->pivot->porcentaje;
+                                        break;
+                                    }
                                 }
                             }
                         @endphp
@@ -136,9 +122,9 @@
                             <td class="text-end">U$D {{ number_format($acumulados[$acreedor->id]['debe'], 2) }}</td>
                             <td class="text-end">U$D {{ number_format($acumulados[$acreedor->id]['haber'], 2) }}</td>
                             <td class="text-end">
-                                <span class="{{ $acumulados[$acreedor->id]['saldo'] >= 0 ? 'text-success' : 'text-danger' }}">
-                                    U$D {{ number_format(abs($acumulados[$acreedor->id]['saldo']), 2) }}
-                                    <i class="fas fa-{{ $acumulados[$acreedor->id]['saldo'] >= 0 ? 'plus' : 'minus' }}-circle"></i>
+                                <span class="text-success">
+                                    U$D {{ number_format($acumulados[$acreedor->id]['saldo'], 2) }}
+                                    <i class="fas fa-plus-circle"></i>
                                 </span>
                             </td>
                         </tr>
@@ -153,11 +139,14 @@
             </table>
         </div>
         
+        @if(isset($comprador->financiacion))
         <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addAcreedorModal">Agregar Acreedor</button>
+        @endif
     </div>
 </div>
 
 <!-- Modal para agregar acreedor -->
+@if(isset($comprador->financiacion))
 <div class="modal fade" id="addAcreedorModal" tabindex="-1" aria-labelledby="addAcreedorModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -174,10 +163,33 @@
                         <label for="acreedor_id" class="form-label">Seleccionar Acreedor</label>
                         <select class="form-select" name="nombre" id="acreedor_select" required>
                             <option value="">Seleccione un acreedor</option>
-                            @foreach(App\Models\Acreedor::where('id', '!=', 1)->get() as $acreedor)
+                            @php
+                                // Obtener los IDs de acreedores que ya están relacionados con esta financiación
+                                $acreedoresRelacionadosIds = [];
+                                
+                                if (isset($comprador->financiacion)) {
+                                    $acreedoresRelacionadosIds = \Illuminate\Support\Facades\DB::table('financiacion_acreedor')
+                                        ->where('financiacion_id', $comprador->financiacion->id)
+                                        ->pluck('acreedor_id')
+                                        ->toArray();
+                                }
+                                
+                                // Obtener acreedores que NO están relacionados todavía (excluir admin y relacionados)
+                                $acreedoresDisponibles = \App\Models\Acreedor::where('id', '!=', 1)
+                                    ->whereNotIn('id', $acreedoresRelacionadosIds)
+                                    ->get();
+                            @endphp
+                            
+                            @foreach($acreedoresDisponibles as $acreedor)
                                 <option value="{{ $acreedor->nombre }}">{{ $acreedor->nombre }}</option>
                             @endforeach
                         </select>
+                        
+                        @if(count($acreedoresDisponibles) == 0)
+                            <div class="form-text text-warning mt-1">
+                                <i class="fas fa-exclamation-circle me-1"></i> No hay acreedores disponibles para agregar
+                            </div>
+                        @endif
                     </div>
                     <div class="mb-3">
                         <label for="porcentaje" class="form-label">Porcentaje</label>
@@ -192,12 +204,13 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="submit" class="btn btn-primary" {{ count($acreedoresDisponibles) == 0 ? 'disabled' : '' }}>Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+@endif
 
 <!-- Script para hacer scroll a la sección de acreedores -->
 <script>

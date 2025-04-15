@@ -30,4 +30,41 @@ class Acreedor extends Model
         return $this->belongsToMany(Financiacion::class, 'financiacion_acreedor')
                     ->withPivot('porcentaje');
     }
+
+    /**
+     * Incrementa el saldo del acreedor
+     * @param float $monto Monto a incrementar (positivo)
+     * @return void
+     */
+    public function incrementarSaldo($monto)
+    {
+        if ($monto <= 0) {
+            return;
+        }
+        
+        $this->saldo += $monto;
+        $this->save();
+    }
+
+    /**
+     * Decrementa el saldo del acreedor (liquidación)
+     * @param float $monto Monto a decrementar (positivo)
+     * @return bool True si se pudo decrementar, False si el saldo es insuficiente
+     */
+    public function decrementarSaldo($monto)
+    {
+        if ($monto <= 0) {
+            return true;
+        }
+        
+        // Verificar que haya saldo suficiente
+        if ($this->saldo < $monto) {
+            return false;
+        }
+        
+        $this->saldo -= $monto;
+        $this->save();
+        
+        return true;
+    }
 }

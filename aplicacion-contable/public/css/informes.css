@@ -1,19 +1,163 @@
-/* Estilos para las vistas de informes */
+/* Estilos generales para módulos de informes y reportes */
+body {
+    font-family: 'Nunito', sans-serif;
+    background-color: rgba(33, 37, 41, 0.2);
+}
 
-/* Estilos para la barra superior */
-.topbar {
-    background-color: #343a40;
-    padding: 10px 0;
+/* Cards y contenedores */
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    border-radius: 0.25rem;
+}
+
+.equal-height-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.equal-height-card .card-body {
+    flex: 1;
+}
+
+.informe-section {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Tablas */
+.table td {
+    vertical-align: middle;
+}
+
+.table-responsive {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+/* Estados de cuotas y badges */
+.badge-count {
+    font-size: 0.9rem;
+    margin-left: 5px;
+}
+
+.cuotas-badge {
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: inline-block;
+}
+
+.estado-pendiente { color: #dc3545; }
+.estado-parcial { color: #ffc107; }
+.estado-pagada { color: #28a745; }
+.estado-futura { color: #6c757d; }
+
+/* Iconos */
+.icon-column {
+    color: #6c757d;
+    margin-right: 8px;
+    width: 20px;
+    text-align: center;
+    display: inline-block;
+}
+
+/* Botones de acción */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    margin-right: 5px;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Filas con estados especiales */
+.moroso-row.warning {
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+.moroso-row.danger {
+    background-color: rgba(220, 53, 69, 0.05);
+}
+
+.finalizado-row {
+    background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+/* Estilos para la página "Próximos a finalizar" */
+.btn-finalizados {
+    background-color: #28a745;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    margin-left: 8px;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.btn-finalizados:hover {
+    background-color: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-finalizados-icon {
     color: white;
 }
 
-/* Estilos para la barra lateral */
-.sidebar {
-    background-color: #f8f9fa;
-    min-height: calc(100vh - 56px);
-    padding-top: 20px;
+.btn-mail-light {
+    background-color: #ffc107;
+    opacity: 0.85;
+    color: #212529;
 }
 
+.btn-mail-light:hover {
+    opacity: 1;
+    background-color: #ffca2c;
+}
+
+.titulo-con-accion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Balance info */
+.balance-info {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.balance-info .card {
+    transition: transform 0.3s ease;
+}
+
+.balance-info .card:hover {
+    transform: translateY(-5px);
+}
+
+/* Navegación */
 .nav-link {
     color: #495057;
     padding: 10px 15px;
@@ -30,57 +174,72 @@
     color: white;
 }
 
-/* Estilos para las secciones de informes */
-.informe-section {
-    display: none;
-    margin-top: 20px;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.informe-section.active {
-    display: block;
-}
-
-/* Estilos para la información de balance */
-.balance-info {
-    background-color: #f8f9fa;
+/* Estilos para el navegador de mes */
+.month-navigator {
     padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
+    position: relative;
 }
 
-.balance-info .card {
-    transition: transform 0.3s ease;
+.month-navigator h6 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
 }
 
-.balance-info .card:hover {
-    transform: translateY(-5px);
+.month-navigator .badge {
+    font-size: 0.85rem;
+    margin-top: 8px;
 }
 
-/* Estilos para las tablas */
-.table-responsive {
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    border-radius: 8px;
-    overflow: hidden;
+.month-navigator.current-month {
+    border: 2px solid #fd7e14;
+    border-radius: 6px;
 }
 
-.table {
-    margin-bottom: 0;
+/* Cambio del estilo active para que sea gris como los encabezados */
+.nav-link.active, .page-item.active .page-link {
+    background-color: #6c757d !important; /* Gris Bootstrap bg-secondary */
+    color: #ffffff !important; /* Texto blanco para contraste */
+    border-color: #6c757d !important;
 }
 
-.table th {
-    background-color: #f8f9fa;
+/* Asegurarnos que los encabezados de tabla también usen el mismo gris */
+/*.table th, .bg-header-gray {
+    background-color: #6c757d !important;
+    color: #ffffff;
+}*/
+
+.btn-month-nav {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Estilos para los botones de acción */
-.action-btn {
-    margin-right: 5px;
-    transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-    transform: scale(1.1);
+/* Responsive */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: start !important;
+    }
+    
+    .card-header > div {
+        margin-top: 10px;
+        width: 100%;
+    }
+    
+    .btn-group {
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    .titulo-con-accion {
+        flex-wrap: wrap;
+    }
 }

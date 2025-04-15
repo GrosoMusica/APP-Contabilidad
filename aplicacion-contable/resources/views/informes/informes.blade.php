@@ -222,10 +222,13 @@
                             </div>
                         </div>
 
-                        <!-- Lista de Deudores con el estilo solicitado -->
+                        <!-- Lista de Deudores con el estilo mejorado -->
                         <div class="card mt-4">
                             <div class="card-header bg-secondary text-white">
-                                <h5 class="mb-0 text-center text-uppercase"><i class="fas fa-list"></i> Lista de Deudores</h5>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0 text-center text-uppercase"><i class="fas fa-list"></i> Lista de Deudores</h5>
+                                    
+                                </div>
                             </div>
                             <div class="card-body">
                                 @if(isset($diagnostico['deudores']) && count($diagnostico['deudores']) > 0)
@@ -337,7 +340,7 @@
     <script>
         $(document).ready(function() {
             // Inicializar DataTables
-            $('#tablaDeudores').DataTable({
+            var tabla = $('#tablaDeudores').DataTable({
                 "order": [[4, 'desc']], // Ordenar por la columna de deuda de mayor a menor
                 "language": {
                     "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json"
@@ -365,6 +368,121 @@
                 $(document).on('pago:realizado', function() {
                     window.location.reload();
                 });
+            });
+
+            // Almacenar los IDs de deudores con sus cuotas pendientes
+            let deudoresCuotasPendientes = {};
+            
+            // Función para calcular cuotas pendientes con mayor precisión
+            function calcularCuotasPendientes() {
+                // Resetear el contador
+                deudoresCuotasPendientes = {};
+                
+                @if(isset($diagnostico['pasos'][1]['resultado']))
+                    // Fecha actual para comparar (sin time)
+                    const fechaActual = new Date();
+                    fechaActual.setHours(0, 0, 0, 0);
+                    
+                    @foreach($diagnostico['pasos'][1]['resultado'] as $cuota)
+                        // Convertir la fecha de string a objeto Date para comparación
+                        const fechaVencimiento = new Date("{{ $cuota->fecha_de_vencimiento }}");
+                        fechaVencimiento.setHours(0, 0, 0, 0);
+                        
+                        // Verificar si la cuota está vencida (fecha_vencimiento <= fechaActual)
+                        // y si su estado es pendiente o parcial
+                        if (
+                            (fechaVencimiento <= fechaActual) && 
+                            ("{{ $cuota->estado }}" === "pendiente" || "{{ $cuota->estado }}" === "parcial")
+                        ) {
+                            // Incrementar contador para este comprador
+                            const compradorId = {{ $cuota->comprador_id }};
+                            
+                            if (!deudoresCuotasPendientes[compradorId]) {
+                                deudoresCuotasPendientes[compradorId] = 0;
+                            }
+                            
+                            deudoresCuotasPendientes[compradorId]++;
+                        }
+                    @endforeach
+                @endif
+                
+                console.log("Deudores con cuotas pendientes:", deudoresCuotasPendientes);
+                
+                // Actualizar contador en los botones
+                let contadorDos = 0;
+                let contadorTres = 0;
+                
+                for (const [id, cantidad] of Object.entries(deudoresCuotasPendientes)) {
+                    if (cantidad >= 3) {
+                        contadorTres++;
+                    }
+                    else if (cantidad >= 2) {
+                        contadorDos++;
+                    }
+                }
+                
+                // Actualizar texto de los botones con contadores
+                $('#verDosCuotas').html(`<i class="fas fa-exclamation-circle"></i> +2 <span class="badge bg-light text-danger">${contadorDos}</span>`);
+                $('#verTresCuotas').html(`<i class="fas fa-exclamation-triangle"></i> +3 <span class="badge bg-light text-danger">${contadorTres}</span>`);
+            }
+            
+            // Calcular cuotas pendientes al cargar la página
+            calcularCuotasPendientes();
+            
+            // Manejadores de eventos para los botones de filtro
+            $('#verTodos').click(function() {
+                $(this).addClass('active').siblings().removeClass('active');
+                
+                // Restablecer todos los filtros
+                tabla.search('').columns().search('').draw();
+                
+                // Volver a mostrar todas las filas directamente
+                tabla.rows().every(function() {
+                    this.node().style.display = '';
+                });
+                tabla.draw();
+                
+                console.log("Mostrando todos los deudores");
+            });
+            
+            $('#verDosCuotas').click(function() {
+                $(this).addClass('active').siblings().removeClass('active');
+                
+                // Filtrar directamente las filas
+                tabla.rows().every(function() {
+                    const nodo = this.node();
+                    const compradorId = nodo.id.replace('fila-deudor-', '');
+                    const cuotasPendientes = deudoresCuotasPendientes[compradorId] || 0;
+                    
+                    if (cuotasPendientes >= 2) {
+                        nodo.style.display = '';
+                    } else {
+                        nodo.style.display = 'none';
+                    }
+                });
+                tabla.draw();
+                
+                console.log("Aplicando filtro de 2+ cuotas pendientes");
+            });
+            
+            $('#verTresCuotas').click(function() {
+                $(this).addClass('active').siblings().removeClass('active');
+                
+                // Filtrar directamente las filas
+                tabla.rows().every(function() {
+                    const nodo = this.node();
+                    const compradorId = nodo.id.replace('fila-deudor-', '');
+                    const cuotasPendientes = deudoresCuotasPendientes[compradorId] || 0;
+                    
+                    if (cuotasPendientes >= 3) {
+                        nodo.style.display = '';
+                    } else {
+                        nodo.style.display = 'none';
+                    }
+                });
+                tabla.draw();
+                
+                console.log("Aplicando filtro de 3+ cuotas pendientes");
             });
         });
     </script>
@@ -465,7 +583,10 @@
                                 'monto' => $cuota->monto,
                                 'estado' => $cuota->estado,
                                 'comprador' => $cuota->nombre_comprador,
-                                'fecha_vencimiento' => $cuota->fecha_de_vencimiento,
+                                'fecha_vencimiento' => is_object($cuota->fecha_de_vencimiento) ? 
+                                                      $cuota->fecha_de_vencimiento->format('d') : 
+                                                      (is_string($cuota->fecha_de_vencimiento) ? 
+                                                       substr($cuota->fecha_de_vencimiento, 8, 2) : ''),
                                 'en_mes_consultado' => $enMesConsultado,
                                 'pagado' => min($pagadoEnCuota, $cuota->monto),
                                 'excedente' => $excedenteEnCuota,
@@ -490,7 +611,7 @@
                                 <th>Pagado</th>
                                 <th>Excedente</th>
                                 <th>Pendiente</th>
-                                <th>Detalle Pagos</th>
+                                <th>Detalles</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -498,7 +619,7 @@
                             <tr class="{{ $c['en_mes_consultado'] ? 'table-primary' : '' }}">
                                 <!-- Columna ID ocultada -->
                                 <td>{{ $c['comprador'] }}</td>
-                                <td>U$D {{ number_format($c['monto'], 2) }}</td>
+                                <td>{{ number_format($c['monto'], 2) }}</td>
                                 <td>
                                     <span class="badge bg-{{ $c['estado'] == 'pagada' ? 'success' : ($c['estado'] == 'parcial' ? 'warning' : 'danger') }}">
                                         {{ $c['estado'] }}
@@ -506,23 +627,33 @@
                                 </td>
                                 <td>{{ $c['fecha_vencimiento'] }}</td>
                                 <!-- Columna "En mes consultado" ocultada -->
-                                <td>U$D {{ number_format($c['pagado'], 2) }}</td>
+                                <td>{{ number_format($c['pagado'], 2) }}</td>
                                 <td>
                                     @if($c['excedente'] > 0)
-                                        <span class="text-primary">U$D {{ number_format($c['excedente'], 2) }}</span>
+                                        <span class="text-primary">{{ number_format($c['excedente'], 2) }}</span>
                                     @else
                                         -
                                     @endif
                                 </td>
-                                <td>U$D {{ number_format($c['pendiente'], 2) }}</td>
+                                <td>{{ number_format($c['pendiente'], 2) }}</td>
                                 <td>
                                     @if(count($c['pagos']) > 0)
                                         <ul class="list-unstyled mb-0">
                                         @foreach($c['pagos'] as $p)
                                             <li>
-                                                ID: {{ $p['id'] }} - U$D {{ number_format($p['monto'], 2) }}
-                                                @if($p['excedente'] > 0)
-                                                    <span class="text-primary">(Excedente: U$D {{ number_format($p['excedente'], 2) }})</span>
+                                                @php
+                                                    // Obtener información del acreedor si está disponible
+                                                    $acreedorNombre = '';
+                                                    if(isset($p['acreedor_id']) && $p['acreedor_id']) {
+                                                        $acreedor = \App\Models\Acreedor::find($p['acreedor_id']);
+                                                        if($acreedor) {
+                                                            $acreedorNombre = $acreedor->nombre;
+                                                        }
+                                                    }
+                                                @endphp
+                                                {{ number_format($p['monto'], 2) }}
+                                                @if(!empty($acreedorNombre))
+                                                    <span class="text-secondary">({{ $acreedorNombre }})</span>
                                                 @endif
                                             </li>
                                         @endforeach

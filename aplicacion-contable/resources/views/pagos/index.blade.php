@@ -75,6 +75,7 @@
                                 <label for="email" class="form-label">Email</label>
                                 <input type="email" id="email" name="email" class="form-control" value="{{ request('email') }}">
                             </div>
+
                         </div>
                         <div class="col-md-3">
                             <div class="mb-3">
@@ -127,10 +128,16 @@
                             Información del Lote
                         </div>
                         <div class="card-body">
-                            <p><strong>Loteo:</strong> {{ $compradorSeleccionado->lote->loteo }}</p>
-                            <p><strong>Manzana:</strong> {{ $compradorSeleccionado->lote->manzana }}</p>
-                            <p><strong>Lote:</strong> {{ $compradorSeleccionado->lote->lote }}</p>
-                            <p><strong>Monto a Financiar:</strong> U$D {{ number_format($compradorSeleccionado->financiacion->monto_a_financiar, 2, ',', '.') }}</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Manzana:</strong> {{ $compradorSeleccionado->lote->manzana }}</p>
+                                    <p><strong>Lote:</strong> {{ $compradorSeleccionado->lote->lote }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Loteo:</strong> {{ $compradorSeleccionado->lote->loteo }}</p>
+                                    <p><span style="font-size: 1.2rem; font-style: italic;">{{ $compradorSeleccionado->lote->mts_cuadrados }} mt<sup>2</sup></span></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -283,6 +290,7 @@
                                                 <button class="btn btn-sm btn-warning mt-2 w-100 registrar-pago" 
                                                         data-cuota-id="{{ $cuota->id }}"
                                                         data-cuota-monto="{{ $saldoPendiente }}"
+                                                        data-financiacion-id="{{ $cuota->financiacion_id }}"
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#registrarPagoModal">
                                                     <i class="fas fa-money-bill-wave me-1"></i> Completar Pago
@@ -292,6 +300,7 @@
                                             <button class="btn btn-sm btn-dark mt-2 w-100 registrar-pago" 
                                                     data-cuota-id="{{ $cuota->id }}"
                                                     data-cuota-monto="{{ $cuota->monto }}"
+                                                    data-financiacion-id="{{ $cuota->financiacion_id }}"
                                                     data-bs-toggle="modal" 
                                                     data-bs-target="#registrarPagoModal">
                                                 <i class="fas fa-money-bill-wave me-1"></i> Registrar Pago
@@ -468,4 +477,5 @@
         });
     </script>
 </body>
+</html> 
 </html> 

@@ -245,7 +245,7 @@
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Loteo:</strong> {{ $comprador->lote->loteo }}</p>
-                                <p><span style="font-size: 1.2rem; font-style: italic;">23 mt<sup>2</sup></span></p>
+                                <p><span style="font-size: 1.2rem; font-style: italic;">{{ $comprador->lote->mts_cuadrados }} mt<sup>2</sup></span></p>
                             </div>
                         </div>
                     </div>
@@ -261,21 +261,15 @@
                         $inicioMes = \Carbon\Carbon::now()->startOfMonth();
                         $finMes = \Carbon\Carbon::now()->endOfMonth();
                         
-                        // Encontrar la cuota actual pendiente más próxima
-                        $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
-                                            ->where('fecha_de_vencimiento', '>=', $hoy)
-                                            ->sortBy('fecha_de_vencimiento')
-                                            ->first();
-                        
-                        // Si no hay cuotas pendientes futuras, tomar la última pendiente
-                        if (!$cuotaActual) {
-                            $cuotaActual = $cuotas->where('estado', '!=', 'pagada')
-                                                ->sortByDesc('fecha_de_vencimiento')
-                                                ->first();
-                        }
+                        // Encontrar ÚNICAMENTE la cuota correspondiente al mes actual
+                        $cuotaActual = $cuotas->filter(function($cuota) use ($inicioMes, $finMes) {
+                            return $cuota->fecha_de_vencimiento >= $inicioMes && 
+                                   $cuota->fecha_de_vencimiento <= $finMes;
+                        })->first();
                         
                         // Definir la clase de color según el estado
-                        $headerColorClass = 'bg-primary'; // Color predeterminado
+                        $headerColorClass = 'bg-secondary'; // Color predeterminado para "fuera de tiempo"
+                        
                         if ($cuotaActual) {
                             if ($cuotaActual->estado === 'pendiente') {
                                 $headerColorClass = 'bg-danger';
@@ -284,18 +278,15 @@
                             } elseif ($cuotaActual->estado === 'pagada') {
                                 $headerColorClass = 'bg-success';
                             }
-                        } else {
-                            // Si todas las cuotas están pagadas
-                            $headerColorClass = 'bg-success';
                         }
                     @endphp
 
                     <div class="card-header {{ $headerColorClass }}" id="cuotaActualHeader">
                         <div class="d-flex justify-content-between align-items-center">
                             @if($cuotaActual)
-                                <span>Cuota Actual #{{ $cuotaActual->numero_de_cuota }}</span>
+                                <span>Cuota del Mes #{{ $cuotaActual->numero_de_cuota }} ({{ $hoy->format('F Y') }})</span>
                             @else
-                                <span>Estado de Cuotas</span>
+                                <span>Sin cuotas este mes</span>
                             @endif
                             <button id="mostrarCuotasBtn" class="btn btn-sm btn-light">
                                 <i class="fas fa-th me-1"></i> Mostrar vista de cuotas
@@ -340,8 +331,9 @@
                             </div>
                         @else
                             <div class="text-center my-3">
-                                <p class="text-success"><i class="fas fa-check-circle fa-2x mb-2"></i></p>
-                                <p>¡Todas las cuotas han sido pagadas!</p>
+                                <p class="text-secondary"><i class="fas fa-calendar-times fa-2x mb-2"></i></p>
+                                <p>No hay cuotas programadas para este mes.</p>
+                                <p class="small text-muted">Verifique el cronograma de pagos para más detalles.</p>
                             </div>
                         @endif
                     </div>

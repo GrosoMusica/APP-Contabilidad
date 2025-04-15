@@ -9,7 +9,8 @@
             <form action="{{ route('cuotas.pagar') }}" method="POST" enctype="multipart/form-data" id="formPago">
                 @csrf
                 <input type="hidden" name="cuota_id" id="cuotaIdInput" value="">
-                <input type="hidden" name="acreedor_id" value="1">
+                <input type="hidden" name="financiacion_id" id="financiacionIdInput" value="">
+                
                 <div class="modal-body">
                     <div class="row">
                         <!-- Columna izquierda -->
@@ -17,6 +18,24 @@
                             <div class="mb-3">
                                 <label for="fechaPago" class="form-label">Fecha de Pago</label>
                                 <input type="date" class="form-control" id="fechaPago" name="fecha_de_pago" value="{{ now()->format('Y-m-d') }}">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="acreedorSelect" class="form-label">Acreedor que recibe el pago</label>
+                                <select class="form-select" id="acreedorSelect" name="acreedor_id">
+                                    <!-- Admin siempre como primera opción -->
+                                    <option value="1" selected>Admin</option>
+                                    
+                                    <!-- Otros acreedores -->
+                                    @php
+                                        // Obtener todos los acreedores que no sean Admin
+                                        $otrosAcreedores = \App\Models\Acreedor::where('id', '!=', 1)->get();
+                                    @endphp
+                                    
+                                    @foreach($otrosAcreedores as $acreedor)
+                                        <option value="{{ $acreedor->id }}">{{ $acreedor->nombre }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             
                             <div class="mb-3">
@@ -127,6 +146,44 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('archivoComprobanteContainer').style.display = 'block';
             document.getElementById('alertaSinComprobante').classList.add('d-none');
         }
+    });
+    
+    // Cargar acreedores cuando se abre el modal
+    $('#registrarPagoModal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+        const cuotaId = button.data('cuota-id');
+        const financiacionId = button.data('financiacion-id');
+        
+        // Establecer valores en inputs ocultos
+        $('#cuotaIdInput').val(cuotaId);
+        $('#financiacionIdInput').val(financiacionId);
+        
+        // Cargar acreedores asociados a esta financiación
+        $.ajax({
+            url: '/api/financiaciones/' + financiacionId + '/acreedores',
+            type: 'GET',
+            success: function(data) {
+                const select = $('#acreedorSelect');
+                select.empty();
+                
+                // Siempre agregar Admin como primera opción
+                select.append(new Option('Admin', 1, true, true));
+                
+                // Agregar otros acreedores asociados
+                data.forEach(function(acreedor) {
+                    if (acreedor.id !== 1) { // Excluir Admin que ya está agregado
+                        select.append(new Option(acreedor.nombre, acreedor.id));
+                    }
+                });
+            },
+            error: function() {
+                console.error('Error al cargar acreedores');
+                // En caso de error, asegurar que Admin esté disponible
+                const select = $('#acreedorSelect');
+                select.empty();
+                select.append(new Option('Admin', 1, true, true));
+            }
+        });
     });
 });
 </script> 

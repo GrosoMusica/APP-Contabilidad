@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use App\Models\Lote;
 use Illuminate\Support\Facades\Log;
+use App\Models\Acreedor;
 
 class PagoController extends Controller
 {
@@ -104,7 +105,8 @@ class PagoController extends Controller
                 // Definir la ruta de almacenamiento
                 $rutaComprobante = $request->file('archivo_comprobante')->storeAs(
                     "COMPROBANTES/{$compradorId}-{$compradorNombre}",
-                    $nombreArchivo
+                    $nombreArchivo,
+                    'public'
                 );
             }
             
@@ -121,6 +123,12 @@ class PagoController extends Controller
             
             // Guardar el pago
             $pago->save();
+
+            // Después de guardar el pago, incrementar el saldo del acreedor
+            $acreedor = Acreedor::find($pago->acreedor_id);
+            if ($acreedor) {
+                $acreedor->incrementarSaldo($pago->monto_usd);
+            }
 
             // Actualizar el estado de la cuota actual
             $totalPagadoCuotaActual = Pago::where('cuota_id', $cuota->id)->sum('monto_usd');
